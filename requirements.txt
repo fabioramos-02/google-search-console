@@ -1,0 +1,3 @@
+# Só para a fase 2 (buscar_gsc.py). O filtrar.py não precisa de nada.
+google-api-python-client
+google-auth

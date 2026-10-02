@@ -63,6 +63,8 @@ python filtrar.py minha-planilha.csv -o resultado.csv
 | Arquivo | O que é |
 |---|---|
 | `filtrar.py` | Script do filtro (fase 1) |
+| `buscar_gsc.py` | Busca na API do Search Console + sitemap (fase 2) |
+| `requirements.txt` | Bibliotecas do Google (só fase 2) |
 | `exemplo.csv` | Planilha **fictícia** no formato do Search Console, para teste |
 | `CLAUDE.md` | Regras do código e roteiro das próximas fases |
 
@@ -71,7 +73,7 @@ Planilhas reais, JSON e credenciais **não** entram no repositório (bloqueados 
 ## Próximas fases
 
 1. ✅ **Filtrar planilha** — `filtrar.py`
-2. ⏳ **API do Search Console** — buscar páginas direto da API (JSON) e gerar `sitemap.xml`
+2. 🔧 **API do Search Console** — `buscar_gsc.py`: busca páginas na API (JSON) e gera `sitemap.xml` (falta credencial para rodar de verdade)
 3. ⏳ **Análise de padrões das URLs** — achar suspeitas que a lista de termos não pega
    (pastas novas, slugs aleatórios, idioma estranho, extensões fora do padrão)
 

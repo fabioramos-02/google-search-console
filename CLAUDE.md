@@ -50,24 +50,46 @@ Alguns termos aparecem legitimamente em site gov — **resultado sempre passa po
 - `crack` — campanhas de saúde/segurança (PCMS, SEJUSP, SES).
 - `apostas`, `bet` — notícias sobre regulação de apostas.
 
-## Fase 2 — API do Search Console → JSON → sitemap (a fazer)
+## Fase 2 — API do Search Console → JSON → sitemap (código pronto, falta credencial)
 
-Objetivo: parar de exportar CSV na mão e puxar as páginas direto da API.
+`buscar_gsc.py` puxa as páginas direto da API, marca as suspeitas com o mesmo `termos_encontrados()`
+do `filtrar.py` e gera o sitemap só com as limpas.
 
-1. **Google Cloud**: criar projeto → habilitar *Google Search Console API* → criar *service account*
-   → baixar chave JSON como `credenciais.json` (já está no `.gitignore`).
-2. **Search Console**: em cada propriedade, *Configurações → Usuários e permissões* → adicionar o
-   e-mail da service account (permissão *Restrito* basta).
-3. `pip install google-api-python-client google-auth`.
-4. Novo script `buscar_gsc.py`:
-   - `searchanalytics().query(siteUrl=..., body={"startDate", "endDate", "dimensions": ["page"], "rowLimit": 25000})`
-     — paginar com `startRow` se passar de 25 000.
-   - Salvar resposta crua em `paginas.json`.
-5. Reaproveitar `termos_encontrados()` do `filtrar.py` (`from filtrar import termos_encontrados`)
-   para marcar as URLs suspeitas — **não** duplicar a lista de termos.
-6. Gerar `sitemap.xml` com `xml.etree.ElementTree` (stdlib): só URLs limpas, formato
-   `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>...</loc></url></urlset>`.
-   Limite do protocolo: 50 000 URLs por arquivo.
+### Configurar (uma vez)
+
+1. **Google Cloud** (console.cloud.google.com): criar projeto → *APIs e serviços* → habilitar
+   *Google Search Console API* → *Credenciais* → criar *service account* → aba *Chaves* → *Adicionar chave → JSON*.
+   Salvar como `credenciais.json` na pasta do projeto (já está no `.gitignore` — **nunca commitar**).
+2. **Search Console**: em cada propriedade, *Configurações → Usuários e permissões → Adicionar usuário*
+   → e-mail da service account (`...@....iam.gserviceaccount.com`), permissão *Restrito*.
+3. Instalar:
+   ```bash
+   python -m venv .venv
+   .venv\Scriptsctivate
+   pip install -r requirements.txt
+   ```
+
+### Rodar
+
+```bash
+python buscar_gsc.py --teste                          # testes offline
+python buscar_gsc.py --listar                         # sites que a credencial enxerga (copiar o nome exato)
+python buscar_gsc.py sc-domain:exemplo.ms.gov.br      # últimos 90 dias
+python buscar_gsc.py https://www.exemplo.ms.gov.br/ --dias 30
+```
+
+Saídas (não vão pro git): `paginas.json` (todas as páginas + cliques, impressões, CTR, posição e `termos`)
+e `sitemap.xml` (só as limpas). As suspeitas aparecem no terminal.
+
+### Pontos de atenção
+
+- Nome do site precisa ser **exato**: propriedade de domínio = `sc-domain:x.ms.gov.br`;
+  de prefixo = `https://www.x.ms.gov.br/` (com barra no fim). Use `--listar`.
+- API só devolve páginas **com impressão** no período — página nunca exibida no Google não aparece.
+  Sitemap sai incompleto nesse caso; serve como base, não como verdade.
+- Dados têm atraso de ~2–3 dias e histórico máximo de 16 meses.
+- Erro 403 = service account não foi adicionada naquela propriedade.
+- Sitemap com mais de 50 000 URLs dá erro de propósito: aí dividir em vários + sitemap index.
 
 Doc: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
 
