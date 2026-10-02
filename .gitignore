@@ -6,3 +6,6 @@ credenciais*
 sitemap*.xml
 __pycache__/
 .venv/
+
+# Planilha fictícia de exemplo pode subir
+!exemplo.csv
