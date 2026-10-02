@@ -1,0 +1,8 @@
+# Dados internos e credenciais não vão para o repositório público
+*.csv
+*.json
+*.xlsx
+credenciais*
+sitemap*.xml
+__pycache__/
+.venv/
