@@ -65,7 +65,7 @@ do `filtrar.py` e gera o sitemap só com as limpas.
 3. Instalar:
    ```bash
    python -m venv .venv
-   .venv\Scriptsctivate
+   .venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
