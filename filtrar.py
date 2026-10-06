@@ -53,6 +53,7 @@ def termos_encontrados(texto):
     """Devolve a lista (sem repetição) de termos suspeitos presentes no texto."""
     return sorted(set(PADRAO.findall(normalizar(texto))))
 
+url_boas = []
 
 def filtrar(caminho_csv):
     """Percorre todas as células do CSV e devolve uma linha de resultado para cada achado."""
@@ -64,8 +65,8 @@ def filtrar(caminho_csv):
         for n_linha, linha in enumerate(leitor, start=2):  # linha 1 é o cabeçalho
             for i, celula in enumerate(linha):
                 termos = termos_encontrados(celula)
+                coluna = cabecalho[i] if i < len(cabecalho) else f"coluna {i + 1}"
                 if termos:
-                    coluna = cabecalho[i] if i < len(cabecalho) else f"coluna {i + 1}"
                     achados.append({
                         "linha": n_linha,
                         "coluna": coluna,
@@ -73,15 +74,28 @@ def filtrar(caminho_csv):
                         "termos": ", ".join(termos),
                         "trecho": celula[:150],
                     })
+                else:
+                    links = URL.findall(celula)
+                    for link in links:
+                        url_boas.append({
+                        "linha": n_linha,
+                        "coluna": coluna,
+                        "url": " ".join(URL.findall(celula)),
+                        })
     return achados
 
 
-def salvar(achados, caminho_saida):
+def salvar_url_maliciosas(achados, caminho_saida):
     with open(caminho_saida, "w", encoding="utf-8-sig", newline="") as f:  # BOM: Excel abre com acento certo
         escritor = csv.DictWriter(f, fieldnames=["linha", "coluna", "url", "termos", "trecho"])
         escritor.writeheader()
         escritor.writerows(achados)
 
+def salvar_url_boas(url_boas, caminho_saida):
+    with open(caminho_saida, "w", encoding="utf-8-sig", newline="") as f:  # BOM: Excel abre com acento certo
+        escritor = csv.DictWriter(f, fieldnames=["linha", "coluna", "url", "termos", "trecho"])
+        escritor.writeheader()
+        escritor.writerows(url_boas)
 
 def testar():
     assert termos_encontrados("https://x.ms.gov.br/fortune-tiger") == ["fortune tiger"]
@@ -107,8 +121,10 @@ if __name__ == "__main__":
         parser.error("informe o CSV de entrada")
     else:
         achados = filtrar(args.csv)
-        salvar(achados, args.saida)
-        print(f"{len(achados)} achado(s) -> {args.saida}")
+        salvar_url_maliciosas(achados, "maliciosas.csv")
+        salvar_url_boas(url_boas, "boas.csv")
+        print(f"{len(url_boas)} URL(s) boa(s) -> boas.csv")
+        print(f"{len(achados)} achado(s) malicioso(s) -> maliciosas.csv")
         contagem = Counter(t for a in achados for t in a["termos"].split(", "))
         for termo, qtd in contagem.most_common():
             print(f"  {termo}: {qtd}")
