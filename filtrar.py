@@ -10,6 +10,7 @@ import csv
 import re
 import unicodedata
 from collections import Counter
+import pandas as pd
 
 # Mesma lista do filtro "site:seusite.ms.gov.br (...)". Para mudar o filtro, edite só aqui.
 TERMOS = [
@@ -84,6 +85,24 @@ def filtrar(caminho_csv):
                         })
     return achados
 
+def filtrar_url(caminho_csv):
+    achados = []
+    if caminho_csv is not None:
+        leitor = pd.read_csv(caminho_csv)
+        for linha in leitor['Páginas principais'].tolist():
+            termos = termos_encontrados(linha)
+            if termos:
+                achados.append({
+                    "url": linha
+                })
+            else:
+                url_boas.append({
+                    "url": linha
+                })
+        return achados
+        
+def get_url_boas():
+    return url_boas
 
 def salvar_url_maliciosas(achados, caminho_saida):
     with open(caminho_saida, "w", encoding="utf-8-sig", newline="") as f:  # BOM: Excel abre com acento certo

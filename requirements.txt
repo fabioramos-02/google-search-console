@@ -1,3 +1,7 @@
-# Só para a fase 2 (buscar_gsc.py). O filtrar.py não precisa de nada.
+# Interface Web e Manipulação de Dados
+streamlit
+pandas
+
+# Fase 2 (buscar_gsc.py)
 google-api-python-client
 google-auth
