@@ -4,8 +4,21 @@
 *.xlsx
 credenciais*
 sitemap*.xml
+.env
+.env.local
 __pycache__/
 .venv/
 
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/*.tsbuildinfo
+
 # Planilha fictícia de exemplo pode subir
 !exemplo.csv
+
+# package.json / tsconfig / etc do frontend podem subir
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json

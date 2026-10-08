@@ -1,7 +1,11 @@
-# Interface Web e Manipulação de Dados
-streamlit
-pandas
+# Lib de filtro / leitura de CSV
+pandas>=2.0
+
+# Backend HTTP (api.py)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
 
 # Fase 2 (buscar_gsc.py)
-google-api-python-client
-google-auth
+google-api-python-client>=2.0
+google-auth>=2.0

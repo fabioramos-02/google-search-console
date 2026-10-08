@@ -1,0 +1,56 @@
+@layer app {
+  :root {
+    --ds-font-family-heading: var(--app-font-heading), sans-serif;
+    --ds-font-family-sans: var(--app-font-sans), sans-serif;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ds-color-background);
+    color: var(--ds-color-text-default);
+    font-family: var(--ds-font-family-sans);
+  }
+
+  a {
+    color: var(--ds-color-link);
+  }
+
+  a:hover {
+    color: var(--ds-color-link-hover);
+  }
+
+  :focus-visible {
+    outline: var(--ds-size-focus-ring-width) solid var(--ds-color-focus);
+    outline-offset: 2px;
+  }
+
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--ds-size-spacing-6, 1.5rem);
+  }
+
+  .painel {
+    display: grid;
+    gap: var(--ds-size-spacing-4, 1rem);
+    padding: var(--ds-size-spacing-6, 1.5rem);
+    background: var(--ds-color-surface);
+    border-radius: var(--ds-size-radius-md);
+    margin-bottom: var(--ds-size-spacing-6, 1.5rem);
+  }
+
+  .form-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ds-size-spacing-4, 1rem);
+    align-items: flex-end;
+  }
+
+  footer {
+    text-align: center;
+    padding: var(--ds-size-spacing-6, 1.5rem);
+    color: var(--ds-color-text-muted);
+    border-top: 1px solid var(--ds-color-border);
+    margin-top: var(--ds-size-spacing-8, 2rem);
+  }
+}
