@@ -6,13 +6,14 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vendor:refresh": "node -e \"console.log('Rode npm pack para cada pacote @plataforma-xvia/* a partir de node_modules e salve em frontend/vendor/')\""
   },
   "dependencies": {
-    "@plataforma-xvia/ds-core": "0.9.0",
-    "@plataforma-xvia/ds-icons": "0.8.0",
-    "@plataforma-xvia/ds-react": "0.9.0",
-    "@plataforma-xvia/ds-tokens": "0.4.0",
+    "@plataforma-xvia/ds-core": "file:vendor/plataforma-xvia-ds-core-0.9.0.tgz",
+    "@plataforma-xvia/ds-icons": "file:vendor/plataforma-xvia-ds-icons-0.8.0.tgz",
+    "@plataforma-xvia/ds-react": "file:vendor/plataforma-xvia-ds-react-0.9.0.tgz",
+    "@plataforma-xvia/ds-tokens": "file:vendor/plataforma-xvia-ds-tokens-0.4.0.tgz",
     "next": "15.1.6",
     "react": "19.0.0",
     "react-dom": "19.0.0"

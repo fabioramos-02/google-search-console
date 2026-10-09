@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DsPageHeader, DsBreadcrumb } from "@plataforma-xvia/ds-react/server";
 import { AuditoriaCliente } from "./AuditoriaCliente";
 
@@ -8,11 +9,13 @@ export default function AuditoriaPage() {
     <main>
       <DsPageHeader
         heading="Auditoria de URLs"
-        description="Selecione um site do GSC ou envie um CSV. URLs com termos suspeitos aparecem na tabela abaixo — revisão humana obrigatória."
+        description="Escolha o modo CSV (sem login) ou API (precisa login). Resultado em duas listas: suspeitas e limpas, cada uma com download CSV."
       >
         <DsBreadcrumb slot="breadcrumb" items={JSON.stringify(trilha)} />
       </DsPageHeader>
-      <AuditoriaCliente apiBase={process.env.API_BASE ?? "http://localhost:8000"} />
+      <Suspense fallback={<p>Carregando…</p>}>
+        <AuditoriaCliente apiBase={process.env.API_BASE ?? "http://localhost:8000"} />
+      </Suspense>
     </main>
   );
 }

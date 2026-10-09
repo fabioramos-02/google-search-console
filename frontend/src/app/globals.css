@@ -39,6 +39,37 @@
     margin-bottom: var(--ds-size-spacing-6, 1.5rem);
   }
 
+  .painel-suspeito {
+    border-left: 4px solid var(--ds-color-feedback-danger, #c0392b);
+  }
+
+  .painel-aviso {
+    border-left: 4px solid var(--ds-color-feedback-info, #2980b9);
+  }
+
+  .login-card {
+    max-width: 420px;
+    margin: 4rem auto;
+  }
+
+  .auditoria-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .secao-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
   .form-linha {
     display: flex;
     flex-wrap: wrap;

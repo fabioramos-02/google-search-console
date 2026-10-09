@@ -22,3 +22,7 @@ frontend/*.tsbuildinfo
 !frontend/package.json
 !frontend/package-lock.json
 !frontend/tsconfig.json
+
+# Pacotes vendor do Design System XVIA — commitados pra build fora da rede MS
+!frontend/vendor/
+!frontend/vendor/*.tgz

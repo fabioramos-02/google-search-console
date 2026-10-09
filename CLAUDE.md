@@ -21,8 +21,38 @@ frontend/ (Next 15 + DS XVIA)  ──HTTP──▶  api.py (FastAPI)  ──▶ 
 
 - `filtrar.py` — lib de filtro + CLI
 - `buscar_gsc.py` — cliente GSC API + gerador de sitemap
-- `api.py` — backend FastAPI (`/sites`, `/paginas`, `/filtrar-csv`)
-- `frontend/` — Next.js com `@plataforma-xvia/*`
+- `api.py` — backend FastAPI (`/sites`, `/paginas`, `/filtrar-csv`, `/login`) + serve `frontend/out`
+- `frontend/` — Next.js com `@plataforma-xvia/*` (vendor em `frontend/vendor/*.tgz`)
+- `env.py` — carrega `.env` com stdlib (sem python-dotenv)
+- `Dockerfile` — build único (front estático + back FastAPI) pra Hugging Face Spaces
+
+## Pro Antonio (estagiário)
+
+**Rodar local:** 2 terminais (ver `README.md`).
+
+**Modo CSV é livre** — pra testar upload. Modo API precisa de login (setdig / Setdig@2026).
+Senha vem de `.env` (`APP_USUARIO`, `APP_SENHA`).
+
+**Atualizar o Design System XVIA** (quando sair versão nova):
+```bash
+cd frontend
+# precisa estar na rede MS/VPN com GITLAB_MS_NPM_TOKEN no ambiente
+rm -rf node_modules && npm install @plataforma-xvia/ds-core@latest @plataforma-xvia/ds-react@latest @plataforma-xvia/ds-tokens@latest @plataforma-xvia/ds-icons@latest
+# empacotar pra vendor (commitável, sem token)
+cd vendor && rm -f plataforma-xvia-*.tgz
+for pkg in ds-core ds-icons ds-react ds-tokens; do npm pack ../node_modules/@plataforma-xvia/$pkg; done
+cd ..
+# ajusta versões no package.json pros novos nomes .tgz, roda `npm install`, commit.
+```
+
+**Credencial GSC** nova: baixa JSON no Cloud Console, aponta via `.env` (`GSC_CREDENCIAIS=arquivo.json`)
+ou cola o conteúdo em Secret do Hugging Face como `GSC_CREDENCIAIS_JSON`.
+
+**Deploy:** push pro remote `hf` (Hugging Face). Space rebuilda sozinho.
+
+**Fluxo do dado:** usuário escolhe site → front chama `GET /paginas` → `buscar_gsc.py` baixa
+todas as páginas do GSC (25k por vez) → `filtrar.py` marca termos suspeitos → front recebe JSON
+e pagina/baixa CSV client-side.
 
 ## Regras para o código
 

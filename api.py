@@ -1,9 +1,10 @@
-"""Backend HTTP para o frontend Next.js.
+"""Backend HTTP + servidor do frontend estático.
 
 Expõe:
     GET  /sites                           -> lista propriedades do GSC
     GET  /paginas?site=<url>&dias=90      -> audita páginas de um site
     POST /filtrar-csv  (multipart file)   -> audita CSV enviado manualmente
+    GET  /*                               -> frontend estático (se frontend/out existir)
 
 Rodar:
     uvicorn api:app --reload --port 8000
@@ -13,14 +14,32 @@ import argparse
 import io
 import os
 from datetime import date, timedelta
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+import env as _env
+
+_env.carregar()  # lê .env (GSC_CREDENCIAIS, etc.)
 
 from buscar_gsc import buscar_paginas, conectar, listar_sites, marcar_suspeitas
 from filtrar import filtrar_url_from_rows, _detectar_coluna
 
 CREDENCIAIS = os.environ.get("GSC_CREDENCIAIS", "credenciais.json")
+
+# Login simples. Padrão: setdig / Setdig@2026. Pode trocar via .env sem mexer no código.
+APP_USUARIO = os.environ.get("APP_USUARIO", "setdig")
+APP_SENHA = os.environ.get("APP_SENHA", "Setdig@2026")
+
+# Em produção (Hugging Face Spaces, Docker), o JSON da service account vem como
+# variável de ambiente GSC_CREDENCIAIS_JSON. Grava em disco no boot.
+_json_env = os.environ.get("GSC_CREDENCIAIS_JSON")
+if _json_env and not Path(CREDENCIAIS).exists():
+    Path(CREDENCIAIS).write_text(_json_env, encoding="utf-8")
 
 app = FastAPI(title="Auditoria GSC - SETDIG", version="1.0")
 
@@ -32,6 +51,20 @@ app.add_middleware(
 )
 
 
+class Credenciais(BaseModel):
+    usuario: str
+    senha: str
+
+
+@app.post("/api/login")
+@app.post("/login")
+def post_login(dados: Credenciais):
+    """Login simples: compara usuario/senha com as variáveis de ambiente."""
+    if dados.usuario == APP_USUARIO and dados.senha == APP_SENHA:
+        return {"ok": True}
+    raise HTTPException(status_code=401, detail="Usuário ou senha incorretos.")
+
+
 def _servico():
     """Abre conexão com GSC; devolve 503 com mensagem clara se credencial faltar."""
     try:
@@ -40,11 +73,13 @@ def _servico():
         raise HTTPException(status_code=503, detail=str(e))
 
 
+@app.get("/api/sites")
 @app.get("/sites")
 def get_sites():
     return {"sites": listar_sites(_servico())}
 
 
+@app.get("/api/paginas")
 @app.get("/paginas")
 def get_paginas(site: str, dias: int = 90):
     fim = date.today()
@@ -62,6 +97,7 @@ def get_paginas(site: str, dias: int = 90):
     }
 
 
+@app.post("/api/filtrar-csv")
 @app.post("/filtrar-csv")
 async def post_filtrar_csv(file: UploadFile = File(...)):
     import pandas as pd
@@ -77,6 +113,23 @@ async def post_filtrar_csv(file: UploadFile = File(...)):
     return {"coluna_usada": coluna, "total": len(linhas), "maliciosas": maliciosas, "limpas": limpas}
 
 
+# Monta frontend estático (gerado por `cd frontend && npm run build` com output:'export')
+_FRONT = Path(__file__).parent / "frontend" / "out"
+if _FRONT.is_dir():
+    app.mount("/_next", StaticFiles(directory=_FRONT / "_next"), name="next-assets")
+
+    @app.get("/{caminho:path}")
+    def servir_frontend(caminho: str):
+        """Serve arquivos do Next export; cai no index.html pra rotas SPA."""
+        alvo = _FRONT / caminho
+        if alvo.is_file():
+            return FileResponse(alvo)
+        html = _FRONT / f"{caminho}.html"
+        if html.is_file():
+            return FileResponse(html)
+        return FileResponse(_FRONT / "index.html")
+
+
 def testar():
     from fastapi.testclient import TestClient
 
@@ -90,6 +143,12 @@ def testar():
     assert body["total"] == 2
     assert body["maliciosas"] == [{"url": "https://x.ms.gov.br/bet365"}]
     assert body["limpas"] == [{"url": "https://x.ms.gov.br/ok"}]
+
+    # /login aceita credencial correta e rejeita a errada
+    r = client.post("/login", json={"usuario": APP_USUARIO, "senha": APP_SENHA})
+    assert r.status_code == 200 and r.json() == {"ok": True}
+    r = client.post("/login", json={"usuario": "x", "senha": "y"})
+    assert r.status_code == 401
 
     # /sites sem credencial devolve 503 com mensagem útil
     r = client.get("/sites")
@@ -110,4 +169,5 @@ if __name__ == "__main__":
         testar()
     else:
         import uvicorn
-        uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
+        porta = int(os.environ.get("PORT", 8000))
+        uvicorn.run("api:app", host="0.0.0.0", port=porta, reload=True)
