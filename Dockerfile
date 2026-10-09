@@ -8,6 +8,8 @@ COPY frontend/package.json frontend/package-lock.json* ./
 COPY frontend/vendor ./vendor
 RUN npm install --no-audit --no-fund
 COPY frontend/ ./
+# Em prod, front e back no mesmo host -> URL relativa (vazia) nos fetchs.
+ENV API_BASE=""
 RUN npm run build
 
 FROM python:3.12-slim
