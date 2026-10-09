@@ -12,6 +12,12 @@ if arquivo:
         achados = filtrar_url(arquivo)
         url_boas = get_url_boas()
         st.write(f"Foram encontrados {len(achados)} links suspeitos.")
-        st.dataframe(achados)
+        if 'tabela_url_maliciosas' not in st.session_state:
+            st.session_state['tabela_url_maliciosas'] = st.dataframe(achados, hide_index=True, column_config={
+                "Páginas principais": st.column_config.TextColumn("Páginas principais",width="large")
+            })
         st.write(f"Foram encontrados {len(url_boas)} links bons.")
-        st.dataframe(url_boas)
+        if 'tabela_url_boas' not in st.session_state:
+            st.session_state['tabela_url_boas'] = st.dataframe(url_boas, hide_index=True, column_config={
+                "Páginas principais": st.column_config.TextColumn("Páginas principais",width="large")
+            })
