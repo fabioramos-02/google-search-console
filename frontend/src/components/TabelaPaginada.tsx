@@ -56,7 +56,9 @@ export function TabelaPaginada<T extends { url: string }>({
 
   return (
     <div>
-      <DsTable caption={caption} columns={colunasJson} rows={linhasJson} zebra />
+      <div className="tabela-scroll">
+        <DsTable caption={caption} columns={colunasJson} rows={linhasJson} zebra />
+      </div>
       <div
         style={{
           display: "flex",

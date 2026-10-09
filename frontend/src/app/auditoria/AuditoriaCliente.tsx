@@ -262,57 +262,61 @@ function Resultado({ resultado }: { resultado: Resultado }) {
 
   return (
     <>
-      <DsAlert tone="info" heading="Resultado">
-        {resultado.total} página(s) analisada(s) — <strong>{resultado.maliciosas.length} suspeita(s)</strong>,{" "}
-        {resultado.limpas.length} limpa(s). Revisão humana obrigatória: termos como &quot;sexo&quot;, &quot;bet&quot; e
-        &quot;crack&quot; têm uso legítimo em páginas gov.
+      <DsAlert tone="info" heading={`${resultado.total} páginas analisadas`}>
+        <strong>{resultado.maliciosas.length} suspeita(s)</strong> · {resultado.limpas.length} limpa(s). Revise
+        manualmente — termos como &quot;sexo&quot;, &quot;bet&quot; e &quot;crack&quot; têm uso legítimo em páginas gov.
       </DsAlert>
 
-      <section className="painel painel-suspeito" style={{ marginTop: "1.5rem" }}>
-        <header className="secao-cabecalho">
-          <h2 style={{ margin: 0 }}>
-            Suspeitas <DsBadge tone="danger">{String(resultado.maliciosas.length)}</DsBadge>
-          </h2>
-          <DsButton
-            tone="secondary"
-            onClick={() =>
-              baixarCsv(`suspeitas-${modoApi ? "api" : "csv"}-${stamp}`, resultado.maliciosas, colunas)
-            }
-            disabled={!resultado.maliciosas.length}
-          >
-            Baixar CSV das suspeitas
-          </DsButton>
-        </header>
-        {resultado.maliciosas.length ? (
-          <TabelaPaginada
-            caption="URLs com termos suspeitos"
-            linhas={resultado.maliciosas}
-            colunas={colunas}
-          />
-        ) : (
-          <p>Nenhuma URL suspeita encontrada.</p>
-        )}
-      </section>
+      <div className="resultado-grid">
+        <section className="painel painel-suspeito">
+          <header className="secao-cabecalho">
+            <h2 style={{ margin: 0, fontSize: "1rem" }}>
+              Suspeitas <DsBadge tone="danger">{String(resultado.maliciosas.length)}</DsBadge>
+            </h2>
+            <DsButton
+              tone="secondary"
+              size="sm"
+              onClick={() =>
+                baixarCsv(`suspeitas-${modoApi ? "api" : "csv"}-${stamp}`, resultado.maliciosas, colunas)
+              }
+              disabled={!resultado.maliciosas.length}
+            >
+              Baixar CSV
+            </DsButton>
+          </header>
+          {resultado.maliciosas.length ? (
+            <TabelaPaginada
+              caption="URLs com termos suspeitos"
+              linhas={resultado.maliciosas}
+              colunas={colunas}
+              porPagina={25}
+            />
+          ) : (
+            <p>Nenhuma URL suspeita.</p>
+          )}
+        </section>
 
-      <section className="painel" style={{ marginTop: "1.5rem" }}>
-        <header className="secao-cabecalho">
-          <h2 style={{ margin: 0 }}>
-            Limpas <DsBadge tone="success">{String(resultado.limpas.length)}</DsBadge>
-          </h2>
-          <DsButton
-            tone="secondary"
-            onClick={() => baixarCsv(`limpas-${modoApi ? "api" : "csv"}-${stamp}`, resultado.limpas, colunas)}
-            disabled={!resultado.limpas.length}
-          >
-            Baixar CSV das limpas
-          </DsButton>
-        </header>
-        {resultado.limpas.length ? (
-          <TabelaPaginada caption="URLs sem termos suspeitos" linhas={resultado.limpas} colunas={colunas} />
-        ) : (
-          <p>Nenhuma URL limpa.</p>
-        )}
-      </section>
+        <section className="painel">
+          <header className="secao-cabecalho">
+            <h2 style={{ margin: 0, fontSize: "1rem" }}>
+              Limpas <DsBadge tone="success">{String(resultado.limpas.length)}</DsBadge>
+            </h2>
+            <DsButton
+              tone="secondary"
+              size="sm"
+              onClick={() => baixarCsv(`limpas-${modoApi ? "api" : "csv"}-${stamp}`, resultado.limpas, colunas)}
+              disabled={!resultado.limpas.length}
+            >
+              Baixar CSV
+            </DsButton>
+          </header>
+          {resultado.limpas.length ? (
+            <TabelaPaginada caption="URLs sem termos suspeitos" linhas={resultado.limpas} colunas={colunas} porPagina={25} />
+          ) : (
+            <p>Nenhuma URL limpa.</p>
+          )}
+        </section>
+      </div>
     </>
   );
 }
