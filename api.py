@@ -43,9 +43,10 @@ if _json_env and not Path(CREDENCIAIS).exists():
 
 app = FastAPI(title="Auditoria GSC - SETDIG", version="1.0")
 
+_cors_extra = [o.strip() for o in os.environ.get("CORS_ORIGENS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000"] + _cors_extra,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
