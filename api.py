@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -35,11 +35,23 @@ CREDENCIAIS = os.environ.get("GSC_CREDENCIAIS", "credenciais.json")
 APP_USUARIO = os.environ.get("APP_USUARIO", "setdig")
 APP_SENHA = os.environ.get("APP_SENHA", "Setdig@2026")
 
-# Em produção (Hugging Face Spaces, Docker), o JSON da service account vem como
-# variável de ambiente GSC_CREDENCIAIS_JSON. Grava em disco no boot.
+# Em produção (HF Spaces, Render, Docker), o JSON vem como env var GSC_CREDENCIAIS_JSON
+# ou como Secret File (Render monta em /etc/secrets/credenciais.json).
 _json_env = os.environ.get("GSC_CREDENCIAIS_JSON")
 if _json_env and not Path(CREDENCIAIS).exists():
-    Path(CREDENCIAIS).write_text(_json_env, encoding="utf-8")
+    try:
+        import json as _json
+        _json.loads(_json_env)  # valida: se não for JSON, erro claro no boot
+        Path(CREDENCIAIS).write_text(_json_env, encoding="utf-8")
+        print(f"[boot] GSC_CREDENCIAIS_JSON gravado em {CREDENCIAIS}")
+    except Exception as e:
+        print(f"[boot] GSC_CREDENCIAIS_JSON inválido: {e}")
+
+# Secret File do Render: se existir em /etc/secrets/credenciais.json, aponta pra lá.
+_render_secret = Path("/etc/secrets/credenciais.json")
+if _render_secret.exists() and not Path(CREDENCIAIS).exists():
+    CREDENCIAIS = str(_render_secret)
+    print(f"[boot] usando Secret File do Render: {CREDENCIAIS}")
 
 app = FastAPI(title="Auditoria GSC - SETDIG", version="1.0")
 
@@ -64,6 +76,14 @@ def post_login(dados: Credenciais):
     if dados.usuario == APP_USUARIO and dados.senha == APP_SENHA:
         return {"ok": True}
     raise HTTPException(status_code=401, detail="Usuário ou senha incorretos.")
+
+
+@app.exception_handler(Exception)
+async def _todo_erro_vira_json(request, exc):
+    """Qualquer exceção não tratada vira JSON (evita HTML 'Internal Server Error' no front)."""
+    import traceback
+    print("[erro]", "".join(traceback.format_exception(exc)))
+    return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
 
 
 def _servico():
