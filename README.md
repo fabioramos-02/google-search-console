@@ -1,3 +1,13 @@
+---
+title: GSC Auditoria SETDIG
+emoji: 🔍
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # google-search-console
 
 Caça páginas suspeitas (apostas, pirataria, pornografia, Telegram, IPTV) em sites
