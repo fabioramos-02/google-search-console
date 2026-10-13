@@ -140,6 +140,43 @@
     color: var(--ds-color-text-muted);
   }
 
+  /* Accordion simples usando <details>/<summary> */
+  .painel-accordion {
+    padding: 0;
+  }
+  .painel-accordion > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .painel-accordion > summary::-webkit-details-marker {
+    display: none;
+  }
+  .painel-accordion > summary::after {
+    content: "▸";
+    transition: transform 0.15s;
+    color: var(--ds-color-text-muted);
+  }
+  .painel-accordion[open] > summary::after {
+    transform: rotate(90deg);
+  }
+  .painel-accordion > *:not(summary) {
+    padding: 0 1.25rem 1rem;
+  }
+  .chip-contador {
+    padding: 0.1rem 0.5rem;
+    background: var(--ds-color-feedback-danger, #c0392b);
+    color: white;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
   /* PainelEstatisticas */
   .estatisticas-cabecalho {
     display: flex;

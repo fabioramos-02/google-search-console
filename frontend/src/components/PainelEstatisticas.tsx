@@ -38,13 +38,16 @@ export function PainelEstatisticas({
   }
 
   return (
-    <div className="painel">
-      <header className="estatisticas-cabecalho">
-        <h2 style={{ margin: 0, fontSize: "1rem" }}>Termos mais encontrados</h2>
-        <span style={{ color: "var(--ds-color-text-muted)", fontSize: "0.85rem" }}>
-          Top {topo.length} por volume de URLs
+    <details className="painel painel-accordion">
+      <summary className="estatisticas-cabecalho">
+        <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <h2 style={{ margin: 0, fontSize: "1rem" }}>Termos mais encontrados</h2>
+          <span className="chip-contador">{topo.length}</span>
         </span>
-      </header>
+        <span style={{ color: "var(--ds-color-text-muted)", fontSize: "0.85rem" }}>
+          clique para expandir · top por volume de URLs
+        </span>
+      </summary>
       <ul className="estatisticas-lista">
         {topo.map((a) => (
           <li key={a.termo}>
@@ -69,7 +72,7 @@ export function PainelEstatisticas({
           </li>
         ))}
       </ul>
-    </div>
+    </details>
   );
 }
 

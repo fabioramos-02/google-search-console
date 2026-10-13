@@ -57,11 +57,11 @@ export function AuditoriaCliente({ apiBase }: { apiBase: string }) {
 
   return (
     <>
-      <div className="auditoria-topbar">
+      <div className="auditoria-topbar" suppressHydrationWarning>
         <DsBadge tone={modo === "api" ? "info" : "success"}>
           {modo === "api" ? "Modo API (precisa login)" : "Modo CSV (sem login)"}
         </DsBadge>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }} suppressHydrationWarning>
           <DsButton tone="tertiary" size="sm" onClick={() => router.push("/termos")}>
             Gerir termos
           </DsButton>
@@ -155,13 +155,13 @@ function PainelApi({ apiBase, onResultado, onErro, carregando, setCarregando }: 
 
   if (!logado) {
     return (
-      <div className="painel painel-aviso">
+      <div className="painel painel-aviso" suppressHydrationWarning>
         <h2 style={{ marginTop: 0 }}>Esse modo precisa de login</h2>
         <p>
           A API do Google Search Console só funciona com uma credencial oficial. Entre com o usuário do painel pra
           continuar.
         </p>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }} suppressHydrationWarning>
           <DsButton tone="primary" onClick={() => router.push("/login")}>
             Entrar
           </DsButton>

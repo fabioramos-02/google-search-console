@@ -39,6 +39,20 @@ export default function Home() {
             </DsButton>
           </div>
         </DsCard>
+
+        <DsCard heading="Gerir termos" headingLevel="3">
+          <div slot="header-end">
+            <DsBadge tone="warning">Admin</DsBadge>
+          </div>
+          <p style={{ margin: 0 }}>
+            Veja os termos padrão, regras automáticas de URL e adicione termos customizados pra ajustar o filtro.
+          </p>
+          <div slot="footer">
+            <DsButton tone="tertiary" href="/termos">
+              Abrir painel de termos
+            </DsButton>
+          </div>
+        </DsCard>
       </div>
     </main>
   );

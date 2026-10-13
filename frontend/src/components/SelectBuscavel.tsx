@@ -39,11 +39,16 @@ export function SelectBuscavel({ label, opcoes, valor, onChange, placeholder, di
     return () => document.removeEventListener("mousedown", fora);
   }, []);
 
+  const opcoesOrdenadas = useMemo(
+    () => [...opcoes].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" })),
+    [opcoes],
+  );
+
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return opcoes.slice(0, 50);
-    return opcoes.filter((o) => o.toLowerCase().includes(termo)).slice(0, 50);
-  }, [opcoes, busca]);
+    if (!termo) return opcoesOrdenadas.slice(0, 50);
+    return opcoesOrdenadas.filter((o) => o.toLowerCase().includes(termo)).slice(0, 50);
+  }, [opcoesOrdenadas, busca]);
 
   return (
     <div className="select-buscavel" ref={containerRef}>
