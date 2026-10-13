@@ -5,12 +5,7 @@ import { useRouter } from "next/navigation";
 import { DsAlert, DsBadge, DsButton, DsInput } from "@plataforma-xvia/ds-react";
 
 import { estaLogado } from "@/lib/auth";
-
-type DadosTermos = {
-  padrao: string[];
-  custom: string[];
-  regras_url: { pattern: string; termo: string }[];
-};
+import { gravarCache, lerCache, type DadosTermos } from "@/lib/termos-cache";
 
 export function TermosCliente({ apiBase }: { apiBase: string }) {
   const router = useRouter();
@@ -25,13 +20,24 @@ export function TermosCliente({ apiBase }: { apiBase: string }) {
       router.replace("/login");
       return;
     }
+    // 1) Mostra o cache imediatamente (se existir e não estiver vencido)
+    const cache = lerCache();
+    if (cache) setDados(cache);
+
+    // 2) Em paralelo, revalida contra o servidor
     fetch(`${apiBase}/termos`)
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).detail || `HTTP ${r.status}`);
         return r.json();
       })
-      .then(setDados)
-      .catch((e) => setErro(String(e.message || e)));
+      .then((d: DadosTermos) => {
+        setDados(d);
+        gravarCache(d);
+      })
+      .catch((e) => {
+        // Se já temos cache, não mostra erro — segue com o cache.
+        if (!cache) setErro(String(e.message || e));
+      });
   }, [apiBase, router]);
 
   if (erro) {
@@ -78,7 +84,9 @@ export function TermosCliente({ apiBase }: { apiBase: string }) {
       });
       if (!r.ok) throw new Error((await r.json()).detail || `HTTP ${r.status}`);
       const body = await r.json();
-      setDados({ ...dados!, custom: body.custom });
+      const atual = { ...dados!, custom: body.custom };
+      setDados(atual);
+      gravarCache(atual); // refresca o cache local pra próxima abertura abrir instantâneo
       setSucesso(`Salvo: ${body.custom.length} termo(s) customizado(s).`);
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : String(e));
