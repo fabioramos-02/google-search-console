@@ -54,6 +54,14 @@ export function AuditoriaCliente({ apiBase }: { apiBase: string }) {
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [montado, setMontado] = useState(false);
+
+  useEffect(() => setMontado(true), []);
+
+  // Evita hydration mismatch — os web components DS XVIA só montam no cliente.
+  if (!montado) {
+    return <p style={{ padding: "2rem" }}>Carregando…</p>;
+  }
 
   return (
     <>
@@ -306,10 +314,13 @@ function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
   }, [linhas]);
 
   // Aplica filtros + busca.
+  // Regra: se o usuário escolheu um termo específico, o filtro de status é ignorado
+  // (termo é mais específico — queremos ver todas as URLs com esse termo).
   const visiveis = useMemo(() => {
     const buscaNorm = busca.trim().toLowerCase();
+    const filtrarPorStatus = filtroTermo === "todos";
     return linhas.filter((l) => {
-      if (filtroStatus !== "todos" && l.statusAtual !== filtroStatus) return false;
+      if (filtrarPorStatus && filtroStatus !== "todos" && l.statusAtual !== filtroStatus) return false;
       if (filtroTermo !== "todos" && !(l.termos ?? []).includes(filtroTermo)) return false;
       if (buscaNorm && !l.url.toLowerCase().includes(buscaNorm)) return false;
       return true;
@@ -439,7 +450,12 @@ function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
               id="filtro-termo"
               className="select-buscavel-input"
               value={filtroTermo}
-              onChange={(e) => setFiltroTermo(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFiltroTermo(v);
+                // Ao escolher um termo específico, mostra todos os status (termo é mais específico).
+                if (v !== "todos") setFiltroStatus("todos");
+              }}
               disabled={!termosDisponiveis.length}
             >
               <option value="todos">Todos os termos</option>

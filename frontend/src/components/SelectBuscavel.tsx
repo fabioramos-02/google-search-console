@@ -39,10 +39,14 @@ export function SelectBuscavel({ label, opcoes, valor, onChange, placeholder, di
     return () => document.removeEventListener("mousedown", fora);
   }, []);
 
-  const opcoesOrdenadas = useMemo(
-    () => [...opcoes].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" })),
-    [opcoes],
-  );
+  const opcoesOrdenadas = useMemo(() => {
+    // Normaliza: remove http(s):// e sc-domain: pra ordenar pelo host "limpo".
+    const limpar = (s: string) =>
+      s.replace(/^https?:\/\//i, "").replace(/^sc-domain:/i, "").toLowerCase();
+    return [...opcoes].sort((a, b) =>
+      limpar(a).localeCompare(limpar(b), "pt-BR", { sensitivity: "base" }),
+    );
+  }, [opcoes]);
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
