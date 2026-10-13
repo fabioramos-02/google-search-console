@@ -61,6 +61,7 @@ def normalizar(texto):
 # wp-content/languages/store.php = plantio típico de SEO spam em WordPress.
 REGRAS_URL = [
     (r"wp-content/languages/store\.php", "wp-content/store.php"),
+    (r"wp-content/languages/stores\.php", "wp-content/stores.php"),
 ]
 
 _REGRAS_COMPILADAS = [(re.compile(p, re.IGNORECASE), nome) for p, nome in REGRAS_URL]
