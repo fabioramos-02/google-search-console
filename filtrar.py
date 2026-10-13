@@ -21,7 +21,9 @@ TERMOS_PADRAO = [
     "xvideos", "xvodeos", "xnxx", "pornhub", "porn", "porno", "pornô", "xxx",
     "sexo", "sex", "nudes", "onlyfans",
     # apostas
-    "bet", "bets", "bet365", "betano", "blaze", "casino", "cassino", "slots",
+    "bet", "bets", "bet365", "betano", "betfair", "betway", "bet7", "pixbet",
+    "betnacional", "estrelabet", "superbet", "galerabet", "sportingbet", "kto",
+    "blaze", "casino", "cassino", "slots",
     "tigrinho", "fortune tiger", "apostas", "jogo do bicho",
     # farmácia
     "viagra", "cialis", "sildenafil", "tadalafil", "kamagra", "buy pills",
@@ -208,6 +210,11 @@ def testar():
     # falsos positivos que não podem casar
     assert termos_encontrados("fale pelo whatsapp (67) 9999-9999") == []  # "whatsapp" sozinho não casa
     assert termos_encontrados("enviamos telegrama oficial") == []         # "telegram" não casa "telegrama"
+
+    # Novas marcas de apostas
+    assert "betfair" in termos_encontrados("https://www.turismo.ms.gov.br/android/acoes%20betfair/pt/")
+    assert "pixbet" in termos_encontrados("https://x.ms.gov.br/pixbet-promocao")
+    assert "sportingbet" in termos_encontrados("acesse sportingbet para apostar")
 
     # Regra automática: wp-content/languages/store.php sempre marcada
     assert "wp-content/store.php" in termos_encontrados(
