@@ -148,7 +148,7 @@ export function TermosCliente({ apiBase }: { apiBase: string }) {
             {dados.custom.map((t) => (
               <li key={t}>
                 <span>{t}</span>
-                <DsButton tone="tertiary" size="sm" onClick={() => remover(t)}>
+                <DsButton tone="danger" size="sm" onClick={() => remover(t)}>
                   Remover
                 </DsButton>
               </li>
