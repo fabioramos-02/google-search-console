@@ -20,7 +20,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Código Python
-COPY api.py buscar_gsc.py filtrar.py env.py ./
+COPY api.py buscar_gsc.py filtrar.py env.py termos_store.py ./
 
 # Frontend estático gerado no stage anterior
 COPY --from=front /app/out ./frontend/out
