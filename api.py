@@ -27,7 +27,11 @@ import env as _env
 _env.carregar()  # lê .env (GSC_CREDENCIAIS, etc.)
 
 from buscar_gsc import buscar_paginas, conectar, listar_sites, marcar_suspeitas
-from filtrar import filtrar_url_from_rows, _detectar_coluna
+from filtrar import TERMOS_PADRAO, REGRAS_URL, filtrar_url_from_rows, _detectar_coluna
+import termos_store
+
+# Carrega termos customizados do disco e recompila o regex no boot.
+termos_store.aplicar_customizados_no_boot()
 
 CREDENCIAIS = os.environ.get("GSC_CREDENCIAIS", "credenciais.json")
 
@@ -67,6 +71,38 @@ app.add_middleware(
 class Credenciais(BaseModel):
     usuario: str
     senha: str
+
+
+class TermosPayload(BaseModel):
+    custom: list[str]
+
+
+@app.get("/api/termos")
+@app.get("/termos")
+def get_termos():
+    """Lista termos padrão (imutáveis), customizados e regras automáticas de URL."""
+    return {
+        "padrao": TERMOS_PADRAO,
+        "custom": termos_store.carregar_customizados(),
+        "regras_url": [{"pattern": p, "termo": t} for p, t in REGRAS_URL],
+    }
+
+
+@app.post("/api/termos")
+@app.post("/termos")
+def post_termos(payload: TermosPayload):
+    """Sobrescreve a lista de termos customizados. Padrão não pode ser removido daqui."""
+    custom = [t.strip() for t in payload.custom if t and t.strip()]
+    # Proteção: não aceita que a UI tente "remover padrão" marcando-os como custom negativo.
+    # Como custom é lista separada, só valida que nenhum item do payload coincide 1:1 com padrão.
+    conflito = [t for t in custom if t in TERMOS_PADRAO]
+    if conflito:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Estes termos já existem na lista padrão (não precisam ser duplicados): {', '.join(conflito)}",
+        )
+    final = termos_store.salvar_customizados(custom)
+    return {"ok": True, "custom": final}
 
 
 @app.post("/api/login")
@@ -170,6 +206,30 @@ def testar():
     assert r.status_code == 200 and r.json() == {"ok": True}
     r = client.post("/login", json={"usuario": "x", "senha": "y"})
     assert r.status_code == 401
+
+    # /termos devolve estrutura esperada
+    r = client.get("/termos")
+    assert r.status_code == 200
+    body = r.json()
+    assert "padrao" in body and "custom" in body and "regras_url" in body
+    assert "bet365" in body["padrao"]
+    assert any(reg["termo"] == "wp-content/store.php" for reg in body["regras_url"])
+
+    # POST /termos rejeita duplicata de padrão
+    r = client.post("/termos", json={"custom": ["bet365"]})
+    assert r.status_code == 400
+
+    # POST /termos aceita custom novo (não polui o repo: usa tempdir)
+    import tempfile
+    original_arq = termos_store.ARQUIVO
+    with tempfile.TemporaryDirectory() as tmp:
+        termos_store.ARQUIVO = Path(tmp) / "termos_custom.json"
+        r = client.post("/termos", json={"custom": ["termo-teste-novo"]})
+        assert r.status_code == 200, r.text
+        assert r.json()["custom"] == ["termo-teste-novo"]
+    termos_store.ARQUIVO = original_arq
+    import filtrar as _f
+    _f._recompilar()  # restaura regex ao padrão
 
     # /sites sem credencial devolve 503 com mensagem útil
     r = client.get("/sites")

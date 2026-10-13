@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { DsTable, DsButton } from "@plataforma-xvia/ds-react";
 import type { Coluna } from "@/lib/csv";
 
@@ -10,24 +10,40 @@ type Props<T> = {
   colunas: Coluna<T>[];
   /** Tamanho de página (padrão 50). */
   porPagina?: number;
+  /** Função opcional para ordenar as linhas antes da paginação. */
+  ordenar?: (a: T, b: T) => number;
+  /**
+   * Função opcional que renderiza a célula da coluna "Ação" por linha.
+   * Quando presente, a tabela usa HTML nativo (DsTable não aceita conteúdo React por célula).
+   */
+  acoesLinha?: (linha: T) => ReactNode;
 };
 
 /**
- * Tabela client-side paginada. Faz um slice do array e renderiza o DsTable.
- * Sem truque: 50 em 50, botões Anterior/Próxima e indicador "X de Y".
+ * Tabela client-side paginada. Faz um slice do array e renderiza:
+ * - DsTable quando NÃO há `acoesLinha` (modo clássico, sem interação por linha).
+ * - Tabela HTML estilizada quando HÁ `acoesLinha` (precisa de botões React por linha).
  */
 export function TabelaPaginada<T extends { url: string }>({
   caption,
   linhas,
   colunas,
   porPagina = 50,
+  ordenar,
+  acoesLinha,
 }: Props<T>) {
   const [pagina, setPagina] = useState(0);
-  const totalPaginas = Math.max(1, Math.ceil(linhas.length / porPagina));
+
+  const linhasOrdenadas = useMemo(
+    () => (ordenar ? [...linhas].sort(ordenar) : linhas),
+    [linhas, ordenar],
+  );
+
+  const totalPaginas = Math.max(1, Math.ceil(linhasOrdenadas.length / porPagina));
   const paginaAtual = Math.min(pagina, totalPaginas - 1);
   const inicio = paginaAtual * porPagina;
   const fim = inicio + porPagina;
-  const visiveis = linhas.slice(inicio, fim);
+  const visiveis = linhasOrdenadas.slice(inicio, fim);
 
   const colunasJson = useMemo(
     () => JSON.stringify(colunas.map((c) => ({ key: String(c.chave), label: c.rotulo }))),
@@ -50,27 +66,45 @@ export function TabelaPaginada<T extends { url: string }>({
     [visiveis, colunas, inicio],
   );
 
-  if (!linhas.length) {
+  if (!linhasOrdenadas.length) {
     return <p>Nenhuma linha para mostrar.</p>;
   }
 
   return (
     <div>
       <div className="tabela-scroll">
-        <DsTable caption={caption} columns={colunasJson} rows={linhasJson} zebra />
+        {acoesLinha ? (
+          <table className="tabela-react" role="table" aria-label={caption}>
+            <caption className="sr-only">{caption}</caption>
+            <thead>
+              <tr>
+                {colunas.map((c) => (
+                  <th key={String(c.chave)}>{c.rotulo}</th>
+                ))}
+                <th aria-label="Ação" />
+              </tr>
+            </thead>
+            <tbody>
+              {visiveis.map((linha, i) => (
+                <tr key={`${inicio + i}-${linha.url}`}>
+                  {colunas.map((c) => {
+                    const bruto = c.formatar
+                      ? c.formatar(linha)
+                      : (linha as Record<string, unknown>)[String(c.chave)];
+                    return <td key={String(c.chave)}>{String(bruto ?? "")}</td>;
+                  })}
+                  <td className="celula-acao">{acoesLinha(linha)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <DsTable caption={caption} columns={colunasJson} rows={linhasJson} zebra />
+        )}
       </div>
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          marginTop: "0.75rem",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="paginacao-rodape">
         <span style={{ color: "var(--ds-color-text-muted)" }}>
-          Mostrando {inicio + 1}–{Math.min(fim, linhas.length)} de {linhas.length}
+          Mostrando {inicio + 1}–{Math.min(fim, linhasOrdenadas.length)} de {linhasOrdenadas.length}
         </span>
         <DsButton
           tone="secondary"

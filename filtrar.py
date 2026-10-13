@@ -14,8 +14,9 @@ from collections import Counter
 
 import pandas as pd
 
-# Mesma lista do filtro "site:seusite.ms.gov.br (...)". Para mudar o filtro, edite só aqui.
-TERMOS = [
+# Termos padrão (imutáveis via UI). Para mudar o filtro base, edite aqui.
+# Termos customizados vêm de termos_custom.json (gerenciável em /termos no front).
+TERMOS_PADRAO = [
     # conteúdo adulto
     "xvideos", "xvodeos", "xnxx", "pornhub", "porn", "porno", "pornô", "xxx",
     "sexo", "sex", "nudes", "onlyfans",
@@ -56,10 +57,42 @@ def normalizar(texto):
     return re.sub(r"[-_/.+=?&#]", " ", texto)
 
 
+# Regras automáticas por padrão específico de URL (SEO hack conhecido). (regex_cru, nome_do_termo).
+# wp-content/languages/store.php = plantio típico de SEO spam em WordPress.
+REGRAS_URL = [
+    (r"wp-content/languages/store\.php", "wp-content/store.php"),
+]
+
+_REGRAS_COMPILADAS = [(re.compile(p, re.IGNORECASE), nome) for p, nome in REGRAS_URL]
+
+# Padrão de termos é dinâmico: recompila quando a lista customizada muda.
 # \b = borda de palavra: "bet" casa "bet" e "bet-365", mas NÃO casa "alphabet" nem "betão".
-# Termos longos primeiro para "bet365" ganhar de "bet".
-_termos = sorted({normalizar(t) for t in TERMOS}, key=len, reverse=True)
-PADRAO = re.compile(r"\b(" + "|".join(re.escape(t) for t in _termos) + r")\b")
+_PADRAO_ATUAL = None
+_TERMOS_ATIVOS: list[str] = []
+
+
+def _recompilar(termos_extra=None):
+    """Recompila o regex de termos. Chamado no boot e sempre que a lista customizada muda."""
+    global _PADRAO_ATUAL, _TERMOS_ATIVOS
+    base = list(TERMOS_PADRAO)
+    if termos_extra:
+        base.extend(termos_extra)
+    # Dedup normalizado + ordenação por tamanho (termos longos ganham dos curtos).
+    _TERMOS_ATIVOS = sorted({normalizar(t) for t in base if t}, key=len, reverse=True)
+    _PADRAO_ATUAL = re.compile(r"\b(" + "|".join(re.escape(t) for t in _TERMOS_ATIVOS) + r")\b")
+
+
+def PADRAO_ATUAL():
+    """Devolve o regex compilado atual (recompila se nunca foi inicializado)."""
+    if _PADRAO_ATUAL is None:
+        _recompilar()
+    return _PADRAO_ATUAL
+
+
+# Compat: nome antigo `PADRAO` ainda importado em outros pontos.
+_recompilar()
+PADRAO = _PADRAO_ATUAL  # snapshot inicial — usar PADRAO_ATUAL() quando quiser recarga
+
 URL = re.compile(r"https?://[^\s\"',|)]+")
 
 
@@ -70,7 +103,14 @@ def termos_encontrados(texto):
     # NaN do pandas é float; vira string "nan" e não casa com nada — seguro.
     if isinstance(texto, float) and math.isnan(texto):
         return []
-    return sorted(set(PADRAO.findall(normalizar(texto))))
+    normalizado = normalizar(texto)
+    achados = set(PADRAO_ATUAL().findall(normalizado))
+    # Regras de URL são aplicadas no texto bruto (preservando "/" e ".") pra casar o path.
+    bruto = str(texto)
+    for regex, nome in _REGRAS_COMPILADAS:
+        if regex.search(bruto):
+            achados.add(nome)
+    return sorted(achados)
 
 
 def filtrar(caminho_csv):
@@ -167,6 +207,19 @@ def testar():
     # falsos positivos que não podem casar
     assert termos_encontrados("fale pelo whatsapp (67) 9999-9999") == []  # "whatsapp" sozinho não casa
     assert termos_encontrados("enviamos telegrama oficial") == []         # "telegram" não casa "telegrama"
+
+    # Regra automática: wp-content/languages/store.php sempre marcada
+    assert "wp-content/store.php" in termos_encontrados(
+        "https://x.ms.gov.br/wp-content/languages/store.php?foo=bar"
+    )
+    # Sem match na regra: URL comum passa limpo
+    assert "wp-content/store.php" not in termos_encontrados("https://x.ms.gov.br/pagina-normal")
+
+    # Termo customizado via _recompilar
+    _recompilar(["tigrinho2"])
+    assert "tigrinho2" in termos_encontrados("https://x.ms.gov.br/jogue-no-tigrinho2-agora")
+    _recompilar()  # volta ao estado padrão
+    assert "tigrinho2" not in termos_encontrados("https://x.ms.gov.br/jogue-no-tigrinho2-agora")
 
     # NaN e tipos não-string
     assert termos_encontrados(float("nan")) == []

@@ -4,6 +4,7 @@
 *.xlsx
 credenciais*
 sitemap*.xml
+termos_custom.json
 .env
 .env.local
 __pycache__/

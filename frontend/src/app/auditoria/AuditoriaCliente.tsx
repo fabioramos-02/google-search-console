@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  DsSelect,
   DsNumberInput,
   DsButton,
   DsAlert,
@@ -12,8 +11,12 @@ import {
 } from "@plataforma-xvia/ds-react";
 
 import { TabelaPaginada } from "@/components/TabelaPaginada";
+import { PainelResumo } from "@/components/PainelResumo";
+import { PainelEstatisticas } from "@/components/PainelEstatisticas";
+import { SelectBuscavel } from "@/components/SelectBuscavel";
 import { baixarCsv, type Coluna } from "@/lib/csv";
 import { estaLogado, sair } from "@/lib/auth";
+import { aplicar, obter, remover, type Overrides, type StatusManual } from "@/lib/overrides";
 
 type Pagina = {
   url: string;
@@ -35,15 +38,14 @@ type Resultado = {
 };
 
 type Modo = "csv" | "api";
+type FiltroStatus = "todos" | "suspeita" | "limpa";
 
-const colunasApi: Coluna<Pagina>[] = [
-  { chave: "url", rotulo: "URL" },
-  { chave: "termos", rotulo: "Termos encontrados", formatar: (p) => (p.termos ?? []).join(", ") },
-  { chave: "cliques", rotulo: "Cliques", formatar: (p) => String(p.cliques ?? 0) },
-  { chave: "impressoes", rotulo: "Impressões", formatar: (p) => String(p.impressoes ?? 0) },
-];
-
-const colunasCsv: Coluna<Pagina>[] = [{ chave: "url", rotulo: "URL" }];
+/** Linha enriquecida com status atual (automático ou override) + flag de reclassificação. */
+type LinhaUnificada = Pagina & {
+  statusAtual: "suspeita" | "limpa";
+  statusAutomatico: "suspeita" | "limpa";
+  reclassificado: boolean;
+};
 
 export function AuditoriaCliente({ apiBase }: { apiBase: string }) {
   const router = useRouter();
@@ -59,7 +61,10 @@ export function AuditoriaCliente({ apiBase }: { apiBase: string }) {
         <DsBadge tone={modo === "api" ? "info" : "success"}>
           {modo === "api" ? "Modo API (precisa login)" : "Modo CSV (sem login)"}
         </DsBadge>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <DsButton tone="tertiary" size="sm" onClick={() => router.push("/termos")}>
+            Gerir termos
+          </DsButton>
           <DsButton
             tone="secondary"
             size="sm"
@@ -94,7 +99,7 @@ export function AuditoriaCliente({ apiBase }: { apiBase: string }) {
         </DsAlert>
       )}
 
-      {resultado && <Resultado resultado={resultado} />}
+      {resultado && <ResultadoUnificado resultado={resultado} />}
     </>
   );
 }
@@ -175,15 +180,14 @@ function PainelApi({ apiBase, onResultado, onErro, carregando, setCarregando }: 
           {erroSites}
         </DsAlert>
       )}
-      <div className="form-linha">
-        <DsSelect
+      <div className="form-linha" style={{ alignItems: "flex-end" }}>
+        <SelectBuscavel
           label="Site"
-          name="site"
-          value={site}
-          onDsSelectChange={(e) => setSite(e.detail.value)}
-          options={JSON.stringify(sites.map((s) => ({ value: s, label: s })))}
+          opcoes={sites}
+          valor={site}
+          onChange={setSite}
           disabled={!sites.length}
-          placeholder="Selecione uma propriedade"
+          placeholder="Digite para filtrar propriedades..."
         />
         <DsNumberInput
           label="Dias"
@@ -253,70 +257,235 @@ function PainelCsv({ apiBase, onResultado, onErro, carregando, setCarregando }: 
   );
 }
 
-/* ---------------- Resultado (duas seções com download) ---------------- */
+/* ---------------- Resultado unificado ---------------- */
 
-function Resultado({ resultado }: { resultado: Resultado }) {
+function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
   const modoApi = !!resultado.site;
-  const colunas = modoApi ? colunasApi : colunasCsv;
+  const chaveSessao = useMemo(
+    () =>
+      modoApi
+        ? `${resultado.site}|${resultado.inicio}|${resultado.fim}`
+        : `csv|${resultado.coluna_usada ?? "col"}|${resultado.total}`,
+    [modoApi, resultado],
+  );
+
+  const [overrides, setOverrides] = useState<Overrides>({});
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
+  const [filtroTermo, setFiltroTermo] = useState<string>("todos");
+  const [busca, setBusca] = useState("");
+
+  useEffect(() => {
+    setOverrides(obter(chaveSessao));
+    setFiltroStatus("todos");
+    setFiltroTermo("todos");
+    setBusca("");
+  }, [chaveSessao]);
+
+  // Unifica suspeitas + limpas e aplica overrides.
+  const linhas = useMemo<LinhaUnificada[]>(() => {
+    const autoSuspeita = resultado.maliciosas.map((p) => ({ ...p, statusAutomatico: "suspeita" as const }));
+    const autoLimpa = resultado.limpas.map((p) => ({ ...p, statusAutomatico: "limpa" as const }));
+    return [...autoSuspeita, ...autoLimpa].map((p) => {
+      const manual = overrides[p.url];
+      const statusAtual = manual ?? p.statusAutomatico;
+      return {
+        ...p,
+        statusAtual,
+        reclassificado: !!manual && manual !== p.statusAutomatico,
+      };
+    });
+  }, [resultado, overrides]);
+
+  // Termos disponíveis pro dropdown de filtro.
+  const termosDisponiveis = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of linhas) {
+      for (const t of l.termos ?? []) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [linhas]);
+
+  // Aplica filtros + busca.
+  const visiveis = useMemo(() => {
+    const buscaNorm = busca.trim().toLowerCase();
+    return linhas.filter((l) => {
+      if (filtroStatus !== "todos" && l.statusAtual !== filtroStatus) return false;
+      if (filtroTermo !== "todos" && !(l.termos ?? []).includes(filtroTermo)) return false;
+      if (buscaNorm && !l.url.toLowerCase().includes(buscaNorm)) return false;
+      return true;
+    });
+  }, [linhas, filtroStatus, filtroTermo, busca]);
+
+  // Totais do resumo (consideram overrides).
+  const totalSuspeitas = linhas.filter((l) => l.statusAtual === "suspeita").length;
+  const totalLimpas = linhas.filter((l) => l.statusAtual === "limpa").length;
+  const totalPendentes = linhas.filter((l) => l.reclassificado).length;
+  const pct = (n: number) => (linhas.length ? ((n / linhas.length) * 100).toFixed(1) : "0,0");
+
+  function reclassificar(url: string, destinoAutomatico: "suspeita" | "limpa") {
+    // Se o destino alvo é igual ao automático, zera override (volta a seguir automático).
+    const linha = linhas.find((l) => l.url === url);
+    if (!linha) return;
+    const novoDestino: StatusManual = linha.statusAtual === "suspeita" ? "limpa" : "suspeita";
+    const _unused = destinoAutomatico;
+    void _unused;
+    if (novoDestino === linha.statusAutomatico) {
+      setOverrides(remover(chaveSessao, url));
+    } else {
+      setOverrides(aplicar(chaveSessao, url, novoDestino));
+    }
+  }
+
+  // Colunas da tabela única.
+  const colunas: Coluna<LinhaUnificada>[] = useMemo(() => {
+    const base: Coluna<LinhaUnificada>[] = [
+      { chave: "url", rotulo: "URL" },
+      {
+        chave: "statusAtual",
+        rotulo: "Status",
+        formatar: (l) =>
+          l.statusAtual === "suspeita"
+            ? l.reclassificado
+              ? "Suspeita (manual)"
+              : "Suspeita"
+            : l.reclassificado
+            ? "Limpa (manual)"
+            : "Limpa",
+      },
+      { chave: "termos", rotulo: "Termos", formatar: (l) => (l.termos ?? []).join(", ") || "—" },
+    ];
+    if (modoApi) {
+      base.push({ chave: "cliques", rotulo: "Cliques", formatar: (l) => String(l.cliques ?? 0) });
+      base.push({ chave: "impressoes", rotulo: "Impressões", formatar: (l) => String(l.impressoes ?? 0) });
+    }
+    return base;
+  }, [modoApi]);
+
+  // Ordenação por relevância: suspeita primeiro, depois impressões desc, depois cliques.
+  const ordenar = (a: LinhaUnificada, b: LinhaUnificada) => {
+    const sa = a.statusAtual === "suspeita" ? 0 : 1;
+    const sb = b.statusAtual === "suspeita" ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    return (b.impressoes ?? 0) - (a.impressoes ?? 0) || (b.cliques ?? 0) - (a.cliques ?? 0);
+  };
+
   const stamp = new Date().toISOString().slice(0, 10);
+
+  function exportar() {
+    const colunasExport: Coluna<LinhaUnificada>[] = [
+      ...colunas,
+      {
+        chave: "reclassificado",
+        rotulo: "Reclassificado",
+        formatar: (l) => (l.reclassificado ? "sim" : "não"),
+      },
+    ];
+    const nome = `auditoria-${filtroStatus}-${stamp}`;
+    baixarCsv(nome, visiveis, colunasExport);
+  }
 
   return (
     <>
-      <DsAlert tone="info" heading={`${resultado.total} páginas analisadas`}>
-        <strong>{resultado.maliciosas.length} suspeita(s)</strong> · {resultado.limpas.length} limpa(s). Revise
-        manualmente — termos como &quot;sexo&quot;, &quot;bet&quot; e &quot;crack&quot; têm uso legítimo em páginas gov.
-      </DsAlert>
+      <PainelResumo
+        metricas={[
+          { rotulo: "URLs analisadas", valor: linhas.length, tom: "neutro" },
+          {
+            rotulo: "Suspeitas",
+            valor: totalSuspeitas,
+            detalhe: `${pct(totalSuspeitas)}% do total`,
+            tom: "danger",
+          },
+          { rotulo: "Limpas", valor: totalLimpas, detalhe: `${pct(totalLimpas)}% do total`, tom: "success" },
+          {
+            rotulo: "Reclassificadas",
+            valor: totalPendentes || "—",
+            detalhe: totalPendentes ? "override manual na sessão" : "nenhuma",
+            tom: "info",
+          },
+        ]}
+      />
 
-      <div className="resultado-grid">
-        <section className="painel painel-suspeito">
-          <header className="secao-cabecalho">
-            <h2 style={{ margin: 0, fontSize: "1rem" }}>
-              Suspeitas <DsBadge tone="danger">{String(resultado.maliciosas.length)}</DsBadge>
-            </h2>
-            <DsButton
-              tone="secondary"
-              size="sm"
-              onClick={() =>
-                baixarCsv(`suspeitas-${modoApi ? "api" : "csv"}-${stamp}`, resultado.maliciosas, colunas)
-              }
-              disabled={!resultado.maliciosas.length}
+      <PainelEstatisticas linhas={linhas.filter((l) => l.statusAtual === "suspeita")} limite={10} />
+
+      <section className="painel">
+        <header className="secao-cabecalho">
+          <h2 style={{ margin: 0, fontSize: "1rem" }}>URLs auditadas</h2>
+          <DsButton tone="secondary" size="sm" onClick={exportar} disabled={!visiveis.length}>
+            Exportar CSV ({visiveis.length})
+          </DsButton>
+        </header>
+
+        <div className="barra-filtros">
+          <div>
+            <label className="select-buscavel-label" htmlFor="filtro-status">
+              Status
+            </label>
+            <select
+              id="filtro-status"
+              className="select-buscavel-input"
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
             >
-              Baixar CSV
-            </DsButton>
-          </header>
-          {resultado.maliciosas.length ? (
-            <TabelaPaginada
-              caption="URLs com termos suspeitos"
-              linhas={resultado.maliciosas}
-              colunas={colunas}
-              porPagina={25}
+              <option value="todos">Todos os status</option>
+              <option value="suspeita">Suspeita</option>
+              <option value="limpa">Limpa</option>
+            </select>
+          </div>
+          <div>
+            <label className="select-buscavel-label" htmlFor="filtro-termo">
+              Termo
+            </label>
+            <select
+              id="filtro-termo"
+              className="select-buscavel-input"
+              value={filtroTermo}
+              onChange={(e) => setFiltroTermo(e.target.value)}
+              disabled={!termosDisponiveis.length}
+            >
+              <option value="todos">Todos os termos</option>
+              {termosDisponiveis.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="select-buscavel-label" htmlFor="filtro-busca">
+              Buscar URL
+            </label>
+            <input
+              id="filtro-busca"
+              type="search"
+              className="select-buscavel-input"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="/wp-content, /servicos..."
             />
-          ) : (
-            <p>Nenhuma URL suspeita.</p>
-          )}
-        </section>
+          </div>
+        </div>
 
-        <section className="painel">
-          <header className="secao-cabecalho">
-            <h2 style={{ margin: 0, fontSize: "1rem" }}>
-              Limpas <DsBadge tone="success">{String(resultado.limpas.length)}</DsBadge>
-            </h2>
-            <DsButton
-              tone="secondary"
-              size="sm"
-              onClick={() => baixarCsv(`limpas-${modoApi ? "api" : "csv"}-${stamp}`, resultado.limpas, colunas)}
-              disabled={!resultado.limpas.length}
-            >
-              Baixar CSV
-            </DsButton>
-          </header>
-          {resultado.limpas.length ? (
-            <TabelaPaginada caption="URLs sem termos suspeitos" linhas={resultado.limpas} colunas={colunas} porPagina={25} />
-          ) : (
-            <p>Nenhuma URL limpa.</p>
-          )}
-        </section>
-      </div>
+        {visiveis.length ? (
+          <TabelaPaginada
+            caption="URLs auditadas"
+            linhas={visiveis}
+            colunas={colunas}
+            porPagina={25}
+            ordenar={ordenar}
+            acoesLinha={(l) => (
+              <DsButton
+                tone="secondary"
+                size="sm"
+                onClick={() => reclassificar(l.url, l.statusAutomatico)}
+              >
+                {l.statusAtual === "suspeita" ? "Marcar como limpa" : "Marcar como suspeita"}
+              </DsButton>
+            )}
+          />
+        ) : (
+          <p>Nenhum resultado para o filtro atual.</p>
+        )}
+      </section>
     </>
   );
 }
