@@ -163,7 +163,7 @@ function PainelApi({ apiBase, onResultado, onErro, carregando, setCarregando }: 
 
   if (!logado) {
     return (
-      <div className="painel painel-aviso" suppressHydrationWarning>
+      <div key="aviso-login" className="painel painel-aviso" suppressHydrationWarning>
         <h2 style={{ marginTop: 0 }}>Esse modo precisa de login</h2>
         <p>
           A API do Google Search Console só funciona com uma credencial oficial. Entre com o usuário do painel pra
@@ -182,7 +182,9 @@ function PainelApi({ apiBase, onResultado, onErro, carregando, setCarregando }: 
   }
 
   return (
-    <div className="painel">
+    // key diferente força o React a recriar o bloco: sem isso ele reaproveita o
+    // <ds-button> "Entrar" como "Sair" e o web component mostra "EntrarSair".
+    <div key="painel-api" className="painel">
       {erroSites && (
         <DsAlert tone="warning" heading="Credencial do GSC indisponível">
           {erroSites}
