@@ -25,5 +25,9 @@
     "eslint": "9.17.0",
     "eslint-config-next": "15.1.6",
     "typescript": "5.7.3"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "unrs-resolver@1.12.2": true
   }
 }
