@@ -225,6 +225,9 @@
     color: var(--ds-color-text-default);
   }
   .select-buscavel-input {
+    /* border-box: sem isso, width 100% + padding + borda estoura o container
+       e o input invade o campo vizinho (Dias). */
+    box-sizing: border-box;
     width: 100%;
     padding: 0.55rem 0.75rem;
     border: 1px solid var(--ds-color-border);
@@ -348,6 +351,11 @@
     flex-wrap: wrap;
     gap: var(--ds-size-spacing-4, 1rem);
     align-items: flex-end;
+  }
+  /* Campos do DS não encolhem abaixo do próprio tamanho (evita sobreposição). */
+  .form-linha > ds-number-input,
+  .form-linha > ds-button {
+    flex: 0 0 auto;
   }
 
   footer {

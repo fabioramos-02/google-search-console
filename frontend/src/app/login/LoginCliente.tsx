@@ -6,6 +6,10 @@ import { DsButton, DsAlert, DsInput } from "@plataforma-xvia/ds-react";
 
 import { entrar, estaLogado } from "@/lib/auth";
 
+// Só o Modo API exige login, então depois de entrar voltamos direto pra ele.
+// (Sem o ?modo=api a auditoria abre no padrão, que é o modo CSV.)
+const DESTINO = "/auditoria?modo=api";
+
 export function LoginCliente({ apiBase }: { apiBase: string }) {
   const router = useRouter();
   const [usuario, setUsuario] = useState("");
@@ -15,7 +19,7 @@ export function LoginCliente({ apiBase }: { apiBase: string }) {
 
   // Se já estiver logado, pula direto pra auditoria.
   useEffect(() => {
-    if (estaLogado()) router.replace("/auditoria");
+    if (estaLogado()) router.replace(DESTINO);
   }, [router]);
 
   async function enviar(e: FormEvent) {
@@ -33,7 +37,7 @@ export function LoginCliente({ apiBase }: { apiBase: string }) {
         throw new Error(d.detail || "Falha no login.");
       }
       entrar();
-      router.replace("/auditoria");
+      router.replace(DESTINO);
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : String(e));
     } finally {
