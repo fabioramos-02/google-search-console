@@ -1,0 +1,33 @@
+{
+  "name": "gsc-auditoria-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "vendor:refresh": "node -e \"console.log('Rode npm pack para cada pacote @plataforma-xvia/* a partir de node_modules e salve em frontend/vendor/')\""
+  },
+  "dependencies": {
+    "@plataforma-xvia/ds-core": "file:vendor/plataforma-xvia-ds-core-0.9.0.tgz",
+    "@plataforma-xvia/ds-icons": "file:vendor/plataforma-xvia-ds-icons-0.8.0.tgz",
+    "@plataforma-xvia/ds-react": "file:vendor/plataforma-xvia-ds-react-0.9.0.tgz",
+    "@plataforma-xvia/ds-tokens": "file:vendor/plataforma-xvia-ds-tokens-0.4.0.tgz",
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "eslint": "9.17.0",
+    "eslint-config-next": "15.1.6",
+    "typescript": "5.7.3"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "unrs-resolver@1.12.2": true
+  }
+}

@@ -1,99 +1,128 @@
+---
+title: GSC Auditoria SETDIG
+emoji: 🔍
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # google-search-console
 
-Encontra páginas suspeitas (spam / SEO hack) em sites do Governo de Mato Grosso do Sul (`*.ms.gov.br`).
+Caça páginas suspeitas (apostas, pirataria, pornografia, Telegram, IPTV) em sites
+`*.ms.gov.br`. Projeto da **SETDIG — Secretaria-Executiva de Transformação Digital**.
 
-Projeto da **SETDIG — Secretaria-Executiva de Transformação Digital**.
+## Para que serve
 
-## Por quê
+Sites `.gov.br` invadidos ganham páginas falsas que o Google indexa junto do nome do governo.
+Em vez de procurar à mão, este painel:
 
-Quando um site gov é invadido, costumam aparecer páginas falsas de pornografia, apostas,
-remédios, pirataria e golpes — que o Google indexa e mostra junto com o nome do governo.
-A checagem era feita à mão no Google:
+1. Lê as páginas que o Google viu no seu site (via API do Search Console).
+2. Marca as que têm palavras suspeitas (lista em [`filtrar.py`](filtrar.py)).
+3. Deixa você baixar duas listas em CSV: as **suspeitas** pra investigar e as **limpas** pro sitemap.
 
-```
-site:seusite.ms.gov.br ("porn" OR "bet" OR "tigrinho" OR "viagra" OR "torrent" OR ...)
-```
+Também aceita CSV do próprio Search Console se você não tiver credencial de API.
 
-Este projeto automatiza esse filtro, permitindo auditar listas de URLs via interface web interativa ou linha de comando.
-
-## Instalação
-
-Requisitos: Python 3.8+.
-
-Instale as dependências no ambiente virtual do projeto:
+## Como rodar (local, 2 terminais)
 
 ```bash
-.\.venv\Scripts\pip install -r requirements.txt
-# ou manualmente:
-.\.venv\Scripts\pip install streamlit pandas
+# Terminal 1 — backend
+python -m venv .venv
+.\.venv\Scripts\activate            # Linux/Mac: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn api:app --reload --port 8000
+
+# Terminal 2 — frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-## Como usar
+Abra `http://localhost:3000`. Login padrão: **setdig / Setdig@2026** (troca em `.env` com
+`APP_USUARIO=` e `APP_SENHA=`).
 
-**Como exportar do Search Console:**
-Desempenho → aba *Páginas* → *Exportar* → *Fazer download do CSV* → usar o arquivo `Páginas.csv` de dentro do `.zip`.
+## Credencial do Google Search Console
 
----
+A API do GSC **não aceita API key** — só service account.
 
-### Modo 1: Interface Web (Streamlit)
+1. **Google Cloud Console** → projeto → *APIs e serviços → Biblioteca* → habilitar
+   **Google Search Console API**.
+2. *Credenciais → Criar credenciais → Conta de serviço* → nome: `gsc-setdig`.
+3. Clica na conta → **Chaves → Adicionar chave → JSON** → baixa o arquivo.
+4. Põe o JSON na raiz do projeto. No `.env`, aponte o caminho:
+   ```
+   GSC_CREDENCIAIS=nome-do-arquivo-baixado.json
+   ```
+5. No **Search Console** (`search.google.com/search-console`), para **cada** propriedade:
+   *Configurações → Usuários e permissões → Adicionar usuário* → cola o e-mail da service
+   account (`...@...iam.gserviceaccount.com`) com permissão **Restrito**.
+6. Testa:
+   ```bash
+   python buscar_gsc.py --listar
+   ```
+   deve listar as propriedades.
 
-Para abrir a interface gráfica no navegador:
+## Publicar grátis — Hugging Face Spaces
+
+Hugging Face Spaces roda Docker de graça, 24/7, com Secrets pra credenciais.
+Front e back ficam no mesmo container.
+
+1. **Crie um Space** em https://huggingface.co/new-space → tipo **Docker**.
+2. Clone o Space e empurre o código deste repo pra ele:
+   ```bash
+   git remote add hf https://huggingface.co/spaces/<seu-usuario>/<nome-do-space>
+   git push hf main
+   ```
+3. **Configure os Secrets** no painel do Space (`Settings → Variables and secrets`):
+   - `GSC_CREDENCIAIS_JSON` — cole o **conteúdo inteiro** do JSON da service account.
+     O backend grava em disco no boot.
+   - `APP_USUARIO` e `APP_SENHA` — opcional, pra trocar o login padrão.
+4. Aguarde o build (~5 min). O Space liga sozinho em
+   `https://<usuario>-<space>.hf.space`.
+
+### Testar o Docker local antes de subir
 
 ```bash
-python -m streamlit run interface.py
+docker build -t gsc .
+docker run -p 7860:7860 \
+  -e GSC_CREDENCIAIS_JSON="$(cat probable-quest-510415-v0-bd18f1a16d43.json)" \
+  gsc
+# abre http://localhost:7860
 ```
 
-1. Clique em **"Browse files"** e envie a planilha `Páginas.csv`.
-2. Clique no botão **"Filtrar URLs"**.
-3. A aplicação exibirá duas tabelas interativas:
-   - **Links suspeitos**: URLs contendo termos maliciosos encontrados.
-   - **Links bons**: URLs auditadas e limpas.
-
----
-
-### Modo 2: Linha de Comando (CLI)
-
-Para executar o processamento diretamente pelo terminal:
+## Linha de comando (sem interface)
 
 ```bash
-python filtrar.py planilha.csv              # gera maliciosas.csv e boas.csv
-python filtrar.py --teste                   # executa testes unitários rápidos
+python filtrar.py planilha.csv                        # maliciosas.csv + boas.csv
+python filtrar.py --teste
+python buscar_gsc.py --listar                         # sites da credencial
+python buscar_gsc.py sc-domain:x.ms.gov.br --dias 90  # paginas.json + sitemap.xml
+python api.py --teste
 ```
-
-No final da execução, o terminal exibe o total de URLs limpas, achados maliciosos e o ranking com a contagem dos termos mais encontrados.
-
----
 
 ## Como funciona o filtro
 
-- **Interface Web (`filtrar_url`)**: Utiliza o `pandas` para ler o CSV e auditar especificamente a coluna `Páginas principais` (padrão de exportação do Search Console), separando em links suspeitos e links válidos (`url_boas`).
-- **Terminal (`filtrar`)**: Varre todas as células da planilha, funcionando para qualquer estrutura de CSV.
-- **Normalização inteligente**: Remove acentos e converte separadores de URL (`/`, `-`, `_`, `.`, `%20`) em espaços (ex.: `/Fortune-Tiger` casa com `fortune tiger`).
-- **Casamento exato de palavra (`\b`)**: Evita falsos positivos como `alphabet` (não casa com `bet`) ou `sexta` (não casa com `sex`).
-- **Lista de termos customizável**: A lista de termos monitorados fica no topo de [`filtrar.py`](filtrar.py) (`TERMOS`).
-
-> ⚠️ **Sempre revisar o resultado.** Termos como `sexo` (formulários), `crack` (campanhas de saúde) e `apostas` (notícias) podem aparecer legitimamente em páginas governamentais.
+- **Normalização**: minúsculo, sem acento, separadores de URL viram espaço
+  (`/Fortune-Tiger` ⇒ casa `fortune tiger`).
+- **Borda de palavra `\b`**: `bet` casa `bet365` mas não `alphabet`.
+- **Lista de termos**: topo de [`filtrar.py`](filtrar.py) — editável.
+- ⚠️ **Revise sempre**: `sexo` (formulários), `crack` (saúde), `apostas` (notícias) podem
+  aparecer legitimamente em páginas gov. Falsos positivos documentados em [`CLAUDE.md`](CLAUDE.md).
 
 ## Arquivos
 
 | Arquivo | O que é |
 |---|---|
-| `interface.py` | Interface gráfica web com Streamlit |
-| `filtrar.py` | Script do filtro com lógica pandas e CLI (fase 1) |
-| `buscar_gsc.py` | Busca na API do Search Console + sitemap (fase 2) |
-| `requirements.txt` | Dependências do projeto (Streamlit, Pandas, APIs Google) |
-| `exemplo.csv` | Planilha **fictícia** no formato do Search Console para testes |
-| `CLAUDE.md` | Regras do código e roteiro das próximas fases |
+| `api.py` | Backend FastAPI — endpoints + serve frontend estático |
+| `filtrar.py` | Regex + lista de termos + CLI |
+| `buscar_gsc.py` | Cliente GSC API + gerador de sitemap |
+| `env.py` | Loader de `.env` (stdlib, sem dep) |
+| `frontend/` | Next.js 15 + DS XVIA (vendor em `frontend/vendor/`) |
+| `Dockerfile` | Build único: front estático + backend FastAPI |
+| `CLAUDE.md` | Instruções pros devs/estagiários |
 
-Planilhas reais, JSON e credenciais **não** entram no repositório (bloqueados no `.gitignore`).
-
-## Próximas fases
-
-1. ✅ **Filtrar planilha & Interface Web** — `filtrar.py` e `interface.py`
-2. 🔧 **API do Search Console** — `buscar_gsc.py`: busca páginas na API (JSON) e gera `sitemap.xml` (falta credencial para rodar de verdade)
-3. ⏳ **Análise de padrões das URLs** — achar suspeitas que a lista de termos não pega (pastas novas, slugs aleatórios, idioma estranho, extensões fora do padrão)
-
-Detalhes de cada fase em [`CLAUDE.md`](CLAUDE.md).
+CSV, JSON e credenciais **não** entram no repositório (`.gitignore`).
 
 ## Equipe
 

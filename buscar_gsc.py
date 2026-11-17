@@ -14,7 +14,10 @@ import os
 import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 
+import env as _env
 from filtrar import termos_encontrados  # mesma lista de termos da fase 1
+
+_env.carregar()  # lê .env (GSC_CREDENCIAIS, etc.)
 
 ESCOPO = ["https://www.googleapis.com/auth/webmasters.readonly"]  # só leitura
 LIMITE_POR_PAGINA = 25000  # máximo que a API devolve por chamada
@@ -103,7 +106,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Busca páginas no Search Console e gera o sitemap.")
     parser.add_argument("site", nargs="?", help='propriedade, ex.: "sc-domain:exemplo.ms.gov.br" ou "https://www.exemplo.ms.gov.br/"')
     parser.add_argument("--dias", type=int, default=90, help="período em dias até hoje (padrão: 90, máx. ~480)")
-    parser.add_argument("--credenciais", default="credenciais.json", help="chave da service account")
+    parser.add_argument("--credenciais", default=os.environ.get("GSC_CREDENCIAIS", "credenciais.json"), help="chave da service account (padrão: $GSC_CREDENCIAIS ou credenciais.json)")
     parser.add_argument("--listar", action="store_true", help="lista os sites disponíveis e sai")
     parser.add_argument("--teste", action="store_true", help="roda os testes e sai")
     args = parser.parse_args()
