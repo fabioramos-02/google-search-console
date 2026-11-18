@@ -25,6 +25,8 @@ type Pagina = {
   ctr?: number;
   posicao?: number;
   termos?: string[];
+  /** Posição na URL onde começa o trecho suspeito (vem do backend, só nas suspeitas). */
+  inicio_suspeito?: number | null;
 };
 
 type Resultado = {
@@ -107,7 +109,7 @@ export function AuditoriaCliente({ apiBase }: { apiBase: string }) {
         </DsAlert>
       )}
 
-      {resultado && <ResultadoUnificado resultado={resultado} />}
+      {resultado && <ResultadoUnificado resultado={resultado} apiBase={apiBase} />}
     </>
   );
 }
@@ -269,7 +271,16 @@ function PainelCsv({ apiBase, onResultado, onErro, carregando, setCarregando }: 
 
 /* ---------------- Resultado unificado ---------------- */
 
-function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
+/** Veredito do agente de IA (agente_ia.py) para uma URL suspeita. */
+type VereditoIa = { veredito: "malicioso" | "legitimo" | "indefinido"; motivo: string };
+
+const ROTULO_IA: Record<VereditoIa["veredito"], string> = {
+  malicioso: "Malicioso",
+  legitimo: "Legítimo",
+  indefinido: "Sem resposta",
+};
+
+function ResultadoUnificado({ resultado, apiBase }: { resultado: Resultado; apiBase: string }) {
   const modoApi = !!resultado.site;
   const chaveSessao = useMemo(
     () =>
@@ -283,12 +294,19 @@ function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [filtroTermo, setFiltroTermo] = useState<string>("todos");
   const [busca, setBusca] = useState("");
+  const [vereditosIa, setVereditosIa] = useState<Record<string, VereditoIa>>({});
+  const [carregandoIa, setCarregandoIa] = useState(false);
+  const [erroIa, setErroIa] = useState<string | null>(null);
+  const [cortadasIa, setCortadasIa] = useState(0);
 
   useEffect(() => {
     setOverrides(obter(chaveSessao));
     setFiltroStatus("todos");
     setFiltroTermo("todos");
     setBusca("");
+    setVereditosIa({});
+    setErroIa(null);
+    setCortadasIa(0);
   }, [chaveSessao]);
 
   // Unifica suspeitas + limpas e aplica overrides.
@@ -349,10 +367,53 @@ function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
     }
   }
 
+  // Manda só as suspeitas (já com overrides) para a IA. O backend corta em 200 e reaproveita vereditos salvos.
+  async function analisarComIa() {
+    setCarregandoIa(true);
+    setErroIa(null);
+    try {
+      const paginas = linhas
+        // pula as já julgadas nesta tela: assim o próximo clique continua de onde o limite de 200 parou
+        .filter((l) => l.statusAtual === "suspeita" && (vereditosIa[l.url]?.veredito ?? "indefinido") === "indefinido")
+        .map((l) => ({ url: l.url, termos: l.termos ?? [] }));
+      const r = await fetch(`${apiBase}/analisar-ia`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paginas }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail || `HTTP ${r.status}`);
+      const dados: { resultados: (VereditoIa & { url: string })[]; cortadas: number } = await r.json();
+      const novos: Record<string, VereditoIa> = {};
+      for (const v of dados.resultados) novos[v.url] = { veredito: v.veredito, motivo: v.motivo };
+      setVereditosIa((atual) => ({ ...atual, ...novos }));
+      setCortadasIa(dados.cortadas);
+    } catch (e: unknown) {
+      setErroIa(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCarregandoIa(false);
+    }
+  }
+
+  const temVereditosIa = Object.keys(vereditosIa).length > 0;
+
   // Colunas da tabela única.
   const colunas: Coluna<LinhaUnificada>[] = useMemo(() => {
     const base: Coluna<LinhaUnificada>[] = [
-      { chave: "url", rotulo: "URL" },
+      {
+        chave: "url",
+        rotulo: "URL",
+        // Pinta de vermelho suave do primeiro termo suspeito até o fim da URL.
+        renderizar: (l) => {
+          const i = l.inicio_suspeito;
+          if (i == null || l.statusAtual !== "suspeita") return l.url;
+          return (
+            <>
+              {l.url.slice(0, i)}
+              <mark className="trecho-suspeito">{l.url.slice(i)}</mark>
+            </>
+          );
+        },
+      },
       {
         chave: "statusAtual",
         rotulo: "Status",
@@ -367,12 +428,23 @@ function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
       },
       { chave: "termos", rotulo: "Termos", formatar: (l) => (l.termos ?? []).join(", ") || "—" },
     ];
+    if (temVereditosIa) {
+      base.push({
+        chave: "ia",
+        rotulo: "IA",
+        formatar: (l) => {
+          const v = vereditosIa[l.url];
+          if (!v) return "—";
+          return v.motivo ? `${ROTULO_IA[v.veredito]}: ${v.motivo}` : ROTULO_IA[v.veredito];
+        },
+      });
+    }
     if (modoApi) {
       base.push({ chave: "cliques", rotulo: "Cliques", formatar: (l) => String(l.cliques ?? 0) });
       base.push({ chave: "impressoes", rotulo: "Impressões", formatar: (l) => String(l.impressoes ?? 0) });
     }
     return base;
-  }, [modoApi]);
+  }, [modoApi, temVereditosIa, vereditosIa]);
 
   // Ordenação por relevância: suspeita primeiro, depois impressões desc, depois cliques.
   const ordenar = (a: LinhaUnificada, b: LinhaUnificada) => {
@@ -423,10 +495,32 @@ function ResultadoUnificado({ resultado }: { resultado: Resultado }) {
       <section className="painel">
         <header className="secao-cabecalho">
           <h2 style={{ margin: 0, fontSize: "1rem" }}>URLs auditadas</h2>
-          <DsButton tone="secondary" size="sm" onClick={exportar} disabled={!visiveis.length}>
-            Exportar CSV ({visiveis.length})
-          </DsButton>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <DsButton
+              tone="primary"
+              size="sm"
+              onClick={analisarComIa}
+              disabled={!totalSuspeitas || carregandoIa}
+              loading={carregandoIa}
+            >
+              Analisar suspeitas com IA
+            </DsButton>
+            <DsButton tone="secondary" size="sm" onClick={exportar} disabled={!visiveis.length}>
+              Exportar CSV ({visiveis.length})
+            </DsButton>
+          </div>
         </header>
+
+        {erroIa && (
+          <DsAlert tone="danger" heading="Falha na análise com IA">
+            {erroIa}
+          </DsAlert>
+        )}
+        {cortadasIa > 0 && (
+          <DsAlert tone="warning" heading="Análise parcial">
+            A IA analisa até 200 URLs por vez. Faltaram {cortadasIa}: clique de novo para continuar.
+          </DsAlert>
+        )}
 
         <div className="barra-filtros">
           <div>

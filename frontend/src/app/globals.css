@@ -75,6 +75,13 @@
     border-bottom: 1px solid var(--ds-color-border);
     vertical-align: middle;
   }
+  /* Trecho suspeito da URL: vermelho suave, legível e chama atenção (funciona no tema escuro). */
+  .trecho-suspeito {
+    background: var(--ds-color-status-danger-bg);
+    color: var(--ds-color-status-danger-fg);
+    border-radius: var(--ds-radius-xsm);
+    padding: 0 0.15rem;
+  }
   .tabela-react thead th {
     position: sticky;
     top: 0;

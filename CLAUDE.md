@@ -16,13 +16,17 @@ Este projeto automatiza via API do Google Search Console + frontend Next.js com 
 
 ```
 frontend/ (Next 15 + DS XVIA)  ──HTTP──▶  api.py (FastAPI)  ──▶  buscar_gsc.py ─ GSC API
-                                                           └──▶  filtrar.py (regex + termos)
+                                                           ├──▶  filtrar.py (regex + termos)
+                                                           └──▶  agente_ia.py ─ LLM (Ollama SES)
 ```
 
 - `filtrar.py` — lib de filtro + CLI
 - `buscar_gsc.py` — cliente GSC API + gerador de sitemap
 - `api.py` — backend FastAPI (`/sites`, `/paginas`, `/filtrar-csv`, `/login`) + serve `frontend/out`
 - `frontend/` — Next.js com `@plataforma-xvia/*` (vendor em `frontend/vendor/*.tgz`)
+- `agente_ia.py` — IA revisa as suspeitas (gpt-oss:20b, API OpenAI-compatível do Ollama SES) e guarda
+  o veredito por URL em `veredictos_ia.json`. Env: `LLM_API_KEY` (obrigatória), `LLM_BASE_URL`, `LLM_MODEL`.
+  Base: backend do projeto `poc-llm`. Endpoint `POST /analisar-ia`, até 200 URLs por vez.
 - `env.py` — carrega `.env` com stdlib (sem python-dotenv)
 - `Dockerfile` — build único (front estático + back FastAPI) pra Hugging Face Spaces
 
@@ -110,7 +114,8 @@ Em resumo:
 ```bash
 python filtrar.py --teste       # regex, normalização, NaN, filtrar_url_from_rows
 python buscar_gsc.py --teste    # marcar_suspeitas, gerar_sitemap
-python api.py --teste           # endpoints via TestClient
+python api.py --teste           # endpoints via TestClient (precisa httpx2 com starlette 1.x)
+python agente_ia.py --teste     # parser JSON, cache de vereditos, limite 200 (LLM falso)
 cd frontend && npm run build    # type-check + build Next
 ```
 
