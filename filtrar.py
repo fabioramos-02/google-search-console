@@ -118,6 +118,22 @@ def termos_encontrados(texto):
     return sorted(achados)
 
 
+def inicio_suspeito(texto):
+    """Posição no texto original onde começa o primeiro trecho suspeito, ou None.
+
+    O front pinta de vermelho do ponto devolvido até o fim da URL.
+    """
+    texto = str(texto)
+    # Versão comparável com o MESMO tamanho do original (1 caractere vira 1), pra posição bater.
+    # shortcut: "%20" não vira espaço aqui, então termo de duas palavras separado por %20 não é achado.
+    comparavel = "".join(
+        " " if c in "-_/.+=?&#" else (unicodedata.normalize("NFD", c.lower())[:1] or c) for c in texto
+    )
+    posicoes = [m.start() for m in [PADRAO_ATUAL().search(comparavel)] if m]
+    posicoes += [m.start() for regex, _ in _REGRAS_COMPILADAS if (m := regex.search(texto))]
+    return min(posicoes, default=None)
+
+
 def filtrar(caminho_csv):
     """Percorre todas as células do CSV e devolve (maliciosas, boas)."""
     maliciosas = []
@@ -160,7 +176,7 @@ def filtrar_url_from_rows(linhas):
             continue
         url = str(linha)
         if termos_encontrados(url):
-            maliciosas.append({"url": url})
+            maliciosas.append({"url": url, "inicio_suspeito": inicio_suspeito(url)})
         else:
             boas.append({"url": url})
     return maliciosas, boas
@@ -218,6 +234,13 @@ def testar():
     assert "pixbet" in termos_encontrados("https://x.ms.gov.br/pixbet-promocao")
     assert "sportingbet" in termos_encontrados("acesse sportingbet para apostar")
 
+    # Onde começa o trecho suspeito (o front pinta dali até o fim)
+    url = "https://aquariotransparente.ms.gov.br/wp-content/languages/store.php?ana-castela-porno"
+    assert url[inicio_suspeito(url):] == "wp-content/languages/store.php?ana-castela-porno"
+    assert "https://x.ms.gov.br/Fortune-Tiger"[inicio_suspeito("https://x.ms.gov.br/Fortune-Tiger"):] == "Fortune-Tiger"
+    assert "https://x.ms.gov.br/página/PORNÔ-já"[inicio_suspeito("https://x.ms.gov.br/página/PORNÔ-já"):] == "PORNÔ-já"
+    assert inicio_suspeito("https://www.detran.ms.gov.br/servicos") is None
+
     # Portal sensacionalista
     assert "portal zacarias" in termos_encontrados("https://x.ms.gov.br/portal-zacarias-video")
 
@@ -240,7 +263,7 @@ def testar():
 
     # filtrar_url_from_rows
     mal, boas = filtrar_url_from_rows(["https://x.ms.gov.br/ok", "https://x.ms.gov.br/bet365"])
-    assert mal == [{"url": "https://x.ms.gov.br/bet365"}]
+    assert mal == [{"url": "https://x.ms.gov.br/bet365", "inicio_suspeito": 20}]
     assert boas == [{"url": "https://x.ms.gov.br/ok"}]
     mal, boas = filtrar_url_from_rows([float("nan"), "https://x.ms.gov.br/ok"])
     assert mal == []

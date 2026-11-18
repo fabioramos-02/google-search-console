@@ -5,11 +5,15 @@
  * Qualquer valor com vírgula, aspas ou quebra de linha é escapado por RFC 4180.
  */
 
+import type { ReactNode } from "react";
+
 export type Coluna<T> = {
   chave: keyof T | string;
   rotulo: string;
   /** Converte o valor da linha pra string. Padrão: String(valor ?? ""). */
   formatar?: (linha: T) => string;
+  /** Só na tela (tabela com ações): conteúdo rico da célula. O CSV continua usando `formatar`. */
+  renderizar?: (linha: T) => ReactNode;
 };
 
 function escapar(valor: unknown): string {

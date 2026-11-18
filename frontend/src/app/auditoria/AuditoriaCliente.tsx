@@ -25,6 +25,8 @@ type Pagina = {
   ctr?: number;
   posicao?: number;
   termos?: string[];
+  /** Posição na URL onde começa o trecho suspeito (vem do backend, só nas suspeitas). */
+  inicio_suspeito?: number | null;
 };
 
 type Resultado = {
@@ -397,7 +399,21 @@ function ResultadoUnificado({ resultado, apiBase }: { resultado: Resultado; apiB
   // Colunas da tabela única.
   const colunas: Coluna<LinhaUnificada>[] = useMemo(() => {
     const base: Coluna<LinhaUnificada>[] = [
-      { chave: "url", rotulo: "URL" },
+      {
+        chave: "url",
+        rotulo: "URL",
+        // Pinta de vermelho suave do primeiro termo suspeito até o fim da URL.
+        renderizar: (l) => {
+          const i = l.inicio_suspeito;
+          if (i == null || l.statusAtual !== "suspeita") return l.url;
+          return (
+            <>
+              {l.url.slice(0, i)}
+              <mark className="trecho-suspeito">{l.url.slice(i)}</mark>
+            </>
+          );
+        },
+      },
       {
         chave: "statusAtual",
         rotulo: "Status",

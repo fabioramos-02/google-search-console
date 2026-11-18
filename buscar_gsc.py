@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 
 import env as _env
-from filtrar import termos_encontrados  # mesma lista de termos da fase 1
+from filtrar import inicio_suspeito, termos_encontrados  # mesma lista de termos da fase 1
 
 _env.carregar()  # lê .env (GSC_CREDENCIAIS, etc.)
 
@@ -68,9 +68,11 @@ def buscar_paginas(servico, site, inicio, fim):
 
 
 def marcar_suspeitas(paginas):
-    """Adiciona o campo "termos" em cada página (lista vazia = página limpa)."""
+    """Adiciona "termos" (lista vazia = página limpa) e, nas suspeitas, "inicio_suspeito"."""
     for p in paginas:
         p["termos"] = termos_encontrados(p["url"])
+        if p["termos"]:
+            p["inicio_suspeito"] = inicio_suspeito(p["url"])
     return paginas
 
 

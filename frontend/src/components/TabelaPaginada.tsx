@@ -88,6 +88,7 @@ export function TabelaPaginada<T extends { url: string }>({
               {visiveis.map((linha, i) => (
                 <tr key={`${inicio + i}-${linha.url}`}>
                   {colunas.map((c) => {
+                    if (c.renderizar) return <td key={String(c.chave)}>{c.renderizar(linha)}</td>;
                     const bruto = c.formatar
                       ? c.formatar(linha)
                       : (linha as Record<string, unknown>)[String(c.chave)];

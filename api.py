@@ -222,7 +222,7 @@ def testar():
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["total"] == 2
-    assert body["maliciosas"] == [{"url": "https://x.ms.gov.br/bet365"}]
+    assert body["maliciosas"] == [{"url": "https://x.ms.gov.br/bet365", "inicio_suspeito": 20}]
     assert body["limpas"] == [{"url": "https://x.ms.gov.br/ok"}]
 
     # /login aceita credencial correta e rejeita a errada
