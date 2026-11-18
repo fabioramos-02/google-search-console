@@ -18,3 +18,5 @@ A estrutura de integração com o agente de IA será construída utilizando o pr
 
 * **Contexto via Documentação:** Para acelerar o desenvolvimento sem a necessidade de auditar todo o código-fonte, serão utilizados prioritariamente os arquivos `.md` (documentação) do `poc-llm` como base de contexto.
 * **Escopo de Reaproveitamento:** Apenas a estrutura de *backend* será aproveitada. Não haverá necessidade de implementar uma base de conhecimento complexa (como RAG); a adaptação consistirá basicamente na atualização dos prompts e dos termos identificados como padrões de URLs maliciosas.
+
+* **Caminho para poc-llm:** C:\Users\apecin\poc-llm\poc-llm

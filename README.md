@@ -99,7 +99,25 @@ python filtrar.py --teste
 python buscar_gsc.py --listar                         # sites da credencial
 python buscar_gsc.py sc-domain:x.ms.gov.br --dias 90  # paginas.json + sitemap.xml
 python api.py --teste
+python agente_ia.py --teste
 ```
+
+## Análise com IA (opcional)
+
+Na tela de auditoria, o botão **Analisar suspeitas com IA** manda as URLs suspeitas para um modelo
+leve (`gpt-oss:20b`, servidor Ollama da SES). A IA diz se é invasão real ou falso positivo
+(ex.: notícia sobre apreensão de drogas) e o motivo. Cada URL é analisada uma vez só: o veredito fica
+em `veredictos_ia.json`. Limite de 200 URLs por clique.
+
+No `.env`:
+
+```
+LLM_API_KEY=...                                   # obrigatória
+LLM_BASE_URL=https://ollamases.saude.ms.gov.br/v1  # padrão
+LLM_MODEL=gpt-oss:20b                             # padrão
+```
+
+O servidor de IA fica na rede do Governo de MS: fora dela (ex.: Hugging Face) o botão devolve erro.
 
 ## Como funciona o filtro
 
@@ -117,6 +135,7 @@ python api.py --teste
 | `api.py` | Backend FastAPI — endpoints + serve frontend estático |
 | `filtrar.py` | Regex + lista de termos + CLI |
 | `buscar_gsc.py` | Cliente GSC API + gerador de sitemap |
+| `agente_ia.py` | IA revisa as suspeitas (LLM da SES) |
 | `env.py` | Loader de `.env` (stdlib, sem dep) |
 | `frontend/` | Next.js 15 + DS XVIA (vendor em `frontend/vendor/`) |
 | `Dockerfile` | Build único: front estático + backend FastAPI |

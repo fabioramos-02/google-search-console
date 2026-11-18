@@ -4,6 +4,7 @@ Expõe:
     GET  /sites                           -> lista propriedades do GSC
     GET  /paginas?site=<url>&dias=90      -> audita páginas de um site
     POST /filtrar-csv  (multipart file)   -> audita CSV enviado manualmente
+    POST /analisar-ia  {paginas:[{url,termos}]} -> IA revisa suspeitas (agente_ia.py)
     GET  /*                               -> frontend estático (se frontend/out existir)
 
 Rodar:
@@ -29,6 +30,8 @@ _env.carregar()  # lê .env (GSC_CREDENCIAIS, etc.)
 from buscar_gsc import buscar_paginas, conectar, listar_sites, marcar_suspeitas
 from filtrar import TERMOS_PADRAO, REGRAS_URL, filtrar_url_from_rows, _detectar_coluna
 import termos_store
+import agente_ia
+import urllib.error
 
 # Carrega termos customizados do disco e recompila o regex no boot.
 termos_store.aplicar_customizados_no_boot()
@@ -103,6 +106,27 @@ def post_termos(payload: TermosPayload):
         )
     final = termos_store.salvar_customizados(custom)
     return {"ok": True, "custom": final}
+
+
+class PaginaIA(BaseModel):
+    url: str
+    termos: list[str] = []
+
+
+class AnaliseIAPayload(BaseModel):
+    paginas: list[PaginaIA]
+
+
+@app.post("/api/analisar-ia")
+@app.post("/analisar-ia")
+def post_analisar_ia(payload: AnaliseIAPayload):
+    """IA revisa as URLs suspeitas (até 200 por chamada). `def` comum: roda em thread, não trava o servidor."""
+    if not agente_ia.configurado():
+        raise HTTPException(status_code=503, detail="IA não configurada: defina LLM_API_KEY no .env.")
+    try:
+        return agente_ia.analisar([p.model_dump() for p in payload.paginas])
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise HTTPException(status_code=502, detail=f"Servidor de IA não respondeu: {e}")
 
 
 @app.post("/api/login")
@@ -238,6 +262,25 @@ def testar():
     # se tiver credencial de verdade, só valida que respondeu 200
     else:
         assert r.status_code == 200
+
+    # /analisar-ia: sem chave -> 503; com chave e modelo falso -> 200 (tempdir pro cache)
+    chave_original = os.environ.pop("LLM_API_KEY", None)
+    r = client.post("/analisar-ia", json={"paginas": [{"url": "https://x.ms.gov.br/bet365"}]})
+    assert r.status_code == 503, r.text
+    original_arq, original_llm = agente_ia.ARQUIVO, agente_ia.chamar_llm
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["LLM_API_KEY"] = "teste"
+            agente_ia.ARQUIVO = Path(tmp) / "veredictos_ia.json"
+            agente_ia.chamar_llm = lambda m: '[{"url": "https://x.ms.gov.br/bet365", "veredito": "malicioso", "motivo": "aposta"}]'
+            r = client.post("/analisar-ia", json={"paginas": [{"url": "https://x.ms.gov.br/bet365", "termos": ["bet365"]}]})
+            assert r.status_code == 200, r.text
+            assert r.json()["resultados"][0]["veredito"] == "malicioso"
+    finally:
+        agente_ia.ARQUIVO, agente_ia.chamar_llm = original_arq, original_llm
+        os.environ.pop("LLM_API_KEY", None)
+        if chave_original is not None:
+            os.environ["LLM_API_KEY"] = chave_original
 
     print("OK: todos os testes passaram")
 

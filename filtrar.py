@@ -42,6 +42,8 @@ TERMOS_PADRAO = [
     # iptv / streaming pirata
     "iptv", "lista m3u", "m3u8", "tv box", "futemax", "redecanais",
     "assistir online grátis", "filmes online grátis",
+    # portais sensacionalistas que o governo nunca cita em canal oficial
+    "portal zacarias",
 ]
 
 # Possíveis nomes da coluna que lista as páginas no export do Search Console.
@@ -215,6 +217,9 @@ def testar():
     assert "betfair" in termos_encontrados("https://www.turismo.ms.gov.br/android/acoes%20betfair/pt/")
     assert "pixbet" in termos_encontrados("https://x.ms.gov.br/pixbet-promocao")
     assert "sportingbet" in termos_encontrados("acesse sportingbet para apostar")
+
+    # Portal sensacionalista
+    assert "portal zacarias" in termos_encontrados("https://x.ms.gov.br/portal-zacarias-video")
 
     # Regra automática: wp-content/languages/store.php sempre marcada
     assert "wp-content/store.php" in termos_encontrados(
